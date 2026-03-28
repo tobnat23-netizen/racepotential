@@ -1843,7 +1843,3 @@ export default function RacePotentialPreview() {
     </div>
   );
 }
-      </div>
-    </div>
-  );
-}
