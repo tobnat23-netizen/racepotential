@@ -1317,8 +1317,8 @@ export default function RacePotentialPreview() {
   const toggleExtraDistance = (id) => setSelectedExtraDistanceIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const siteName = "RacePotential";
-  const siteUrl = "https://racepotential.app";
-  const supportEmail = "support@racepotential.app";
+  const siteUrl = "https://racepotential.com";
+  const supportEmail = "support@racepotential.com";
   const businessName = "Your Company Name";
   const businessCountry = "Spain";
   const businessAddress = "Your business address";
@@ -1449,7 +1449,7 @@ export default function RacePotentialPreview() {
 
       doc.setFontSize(9);
       doc.setTextColor(...P.textLight);
-      doc.text(`Generated ${generatedOn} · racepotential.app`, marginX + 18, y + 90);
+      doc.text(`Generated ${generatedOn} · racepotential.com`, marginX + 18, y + 90);
 
       y += blockH + 20;
     };
@@ -1676,7 +1676,7 @@ export default function RacePotentialPreview() {
       doc.setTextColor(...P.textLight);
       doc.text("RacePotential", marginX, fy);
       doc.text(`Page ${p} of ${totalPages}`, pageWidth / 2, fy, { align: "center" });
-      doc.text("racepotential.app", pageWidth - marginX, fy, { align: "right" });
+      doc.text("racepotential.com", pageWidth - marginX, fy, { align: "right" });
     }
 
     const safeProfile = safeProfileLabel.split(" ").join("-").toLowerCase();
@@ -2173,7 +2173,7 @@ This website offers an athletic performance prediction tool and optional paid di
                   <Share2 className="h-3.5 w-3.5" /> Share result
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/45">
-                  <Activity className="h-3.5 w-3.5" /> RacePotential.app
+                  <Activity className="h-3.5 w-3.5" /> RacePotential.com
                 </div>
               </div>
 
@@ -2218,7 +2218,7 @@ This website offers an athletic performance prediction tool and optional paid di
               </div>
 
               <div className="mt-8 flex items-center justify-between gap-4 border-t border-white/10 pt-4 text-sm text-white/40">
-                <div>racepotential.app</div>
+                <div>racepotential.com</div>
                 <div>Predict your next breakthrough</div>
               </div>
             </div>
