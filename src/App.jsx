@@ -17,6 +17,7 @@ import {
   Sparkles,
   TimerReset,
   TrendingDown,
+  X,
   Zap,
 } from "lucide-react";
 
@@ -1005,7 +1006,22 @@ function buildPdfReportLines(result, equivalents, profile, form) {
   return fullReport.split("\n");
 }
 
-function PremiumReportSection({ result, equivalents, profile, form, isPaid, onUnlock, onDownloadPdf }) {
+function PremiumReportSection({
+  result,
+  equivalents,
+  profile,
+  form,
+  isPaid,
+  onUnlock,
+  onDownloadPdf,
+  acceptedLegal,
+  setAcceptedLegal,
+  acceptedWithdrawal,
+  setAcceptedWithdrawal,
+  canUnlockPremium,
+  priceText,
+  setLegalOpen,
+}) {
   if (!result) return null;
 
   const advice = buildTrainingAdvice(result, profile, form);
@@ -1022,9 +1038,14 @@ function PremiumReportSection({ result, equivalents, profile, form, isPaid, onUn
         {!isPaid && (
           <button
             onClick={onUnlock}
-            className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-red-500/20"
+            disabled={!canUnlockPremium}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition ${
+              canUnlockPremium
+                ? "bg-red-500 shadow-red-500/20 hover:bg-red-400"
+                : "cursor-not-allowed bg-white/10 text-white/45 shadow-none"
+            }`}
           >
-            Unlock full report – $0.99
+            Unlock full report – {priceText}
           </button>
         )}
       </div>
@@ -1044,6 +1065,62 @@ function PremiumReportSection({ result, equivalents, profile, form, isPaid, onUn
             <div className="text-sm font-medium text-white">Teaser</div>
             <p className="mt-2 text-sm leading-6 text-white/75">
               The model sees your biggest improvement opportunity in <span className="font-semibold text-white">{advice.limiter}</span>. The full report explains exactly why, and gives you a specific session to target it.
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-sm font-medium text-white">Before unlocking</div>
+
+            <label className="mt-3 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/75">
+              <input
+                type="checkbox"
+                checked={acceptedLegal}
+                onChange={(e) => setAcceptedLegal(e.target.checked)}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <span>
+                I agree to the{" "}
+                <button
+                  type="button"
+                  onClick={() => setLegalOpen("terms")}
+                  className="text-red-300 underline"
+                >
+                  Terms of Service
+                </button>{" "}
+                and I have read the{" "}
+                <button
+                  type="button"
+                  onClick={() => setLegalOpen("privacy")}
+                  className="text-red-300 underline"
+                >
+                  Privacy Policy
+                </button>.
+              </span>
+            </label>
+
+            <label className="mt-3 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/75">
+              <input
+                type="checkbox"
+                checked={acceptedWithdrawal}
+                onChange={(e) => setAcceptedWithdrawal(e.target.checked)}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <span>
+                I request immediate access to the premium digital report and acknowledge that,
+                where applicable, I may lose my withdrawal right once digital delivery begins. Read{" "}
+                <button
+                  type="button"
+                  onClick={() => setLegalOpen("refund")}
+                  className="text-red-300 underline"
+                >
+                  Refunds & Digital Content Notice
+                </button>.
+              </span>
+            </label>
+
+            <p className="mt-3 text-xs leading-6 text-white/50">
+              This tool provides model-based estimates only. It does not provide medical advice,
+              injury advice, or guaranteed performance outcomes.
             </p>
           </div>
         </div>
@@ -1115,6 +1192,37 @@ function PremiumReportSection({ result, equivalents, profile, form, isPaid, onUn
   );
 }
 
+function LegalModal({ openKey, onClose, legalContent }) {
+  if (!openKey) return null;
+  const item = legalContent?.[openKey];
+  if (!item) return null;
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl rounded-[28px] border border-white/10 bg-neutral-950 p-6 shadow-2xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.18em] text-white/45">Legal</div>
+            <h3 className="mt-1 text-2xl font-semibold text-white">{item.title}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.07]"
+          >
+            <X className="h-4 w-4" />
+            Close
+          </button>
+        </div>
+
+        <div className="mt-5 max-h-[70vh] overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-4">
+          <p className="whitespace-pre-line text-sm leading-7 text-white/80">{item.body}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function runSelfChecks() {
   const tests = [
     { name: "parse plain seconds", pass: parseTimeToSeconds("11.50") === 11.5 },
@@ -1179,6 +1287,9 @@ export default function RacePotentialPreview() {
   const [isPaid, setIsPaid] = useState(false);
   const [showExtraDistances, setShowExtraDistances] = useState(false);
   const [selectedExtraDistanceIds, setSelectedExtraDistanceIds] = useState([]);
+  const [legalOpen, setLegalOpen] = useState(null);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [acceptedWithdrawal, setAcceptedWithdrawal] = useState(false);
   const [form, setForm] = useState({
     sex: "male",
     age: "",
@@ -1366,6 +1477,83 @@ export default function RacePotentialPreview() {
     doc.save("racepotential-" + safeProfile + "-" + safeTarget + "-report.pdf");
   };
 
+  const siteName = "RacePotential";
+  const siteUrl = "https://racepotential.app";
+  const supportEmail = "support@racepotential.app"; // BYTT
+  const businessName = "Your Company Name"; // BYTT
+  const businessCountry = "Spain"; // BYTT hvis nødvendig
+  const businessAddress = "Your business address"; // BYTT
+  const priceText = "$0.99";
+
+  const canUnlockPremium = acceptedLegal && acceptedWithdrawal;
+
+  const legalContent = {
+    privacy: {
+      title: "Privacy Policy",
+      body: `
+We collect the information you enter into the calculator, such as performance times, age, sex category, target event, and training frequency, in order to generate race predictions and personalized report content.
+
+If payment is enabled later, payment processing may be handled by a third-party payment provider such as Stripe. We do not store full card details ourselves.
+
+We may process technical data needed to operate the site, prevent abuse, and improve reliability. If analytics, advertising, or tracking tools are added later, they should only run after any legally required consent has been obtained.
+
+Your data is used to provide the service, support purchases, respond to support requests, and comply with legal obligations.
+
+You may have rights to access, correct, delete, or object to certain processing of your personal data depending on applicable law. Contact: ${supportEmail}
+
+Data controller:
+${businessName}
+${businessAddress}
+${businessCountry}
+${supportEmail}
+      `.trim(),
+    },
+    terms: {
+      title: "Terms of Service",
+      body: `
+RacePotential provides predictive performance estimates for informational purposes only. Results are model-based estimates, not guarantees of athletic performance, training outcomes, health outcomes, or coaching success.
+
+By using this site, you agree that:
+1. You are responsible for how you use the information provided.
+2. The site is not medical advice, injury advice, or a substitute for professional coaching.
+3. Performance predictions may be inaccurate, incomplete, or unsuitable for your specific circumstances.
+4. You will not misuse, copy, reverse engineer, or resell premium report content or the calculator in an abusive way.
+5. Access to premium digital content may be delivered immediately after payment.
+
+We may update these terms from time to time. Continued use of the service after changes means you accept the updated terms.
+      `.trim(),
+    },
+    refund: {
+      title: "Refunds & Digital Content Notice",
+      body: `
+Premium reports are sold as digital content / digital service access.
+
+For EU consumers, online purchases can normally include a 14-day withdrawal period. However, where digital content or digital services are supplied immediately, that right can be lost once performance begins if the user expressly agrees to immediate supply and acknowledges that the withdrawal right is thereby lost.
+
+By unlocking the premium report, you agree to immediate delivery of digital content.
+
+Refund requests can still be reviewed in cases such as duplicate payment, technical failure, or non-delivery. Contact: ${supportEmail}
+      `.trim(),
+    },
+    legal: {
+      title: "Legal Notice / Contact",
+      body: `
+Service provider:
+${businessName}
+${businessAddress}
+${businessCountry}
+
+Website:
+${siteUrl}
+
+Support:
+${supportEmail}
+
+This website offers an athletic performance prediction tool and optional paid digital report access.
+      `.trim(),
+    },
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-neutral-950 text-white">
       <motion.div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[55vh]" style={{ y: glowY, opacity: glowOpacity }}>
@@ -1395,6 +1583,8 @@ export default function RacePotentialPreview() {
                       setSelectedExtraDistanceIds([]);
                       setShowExtraDistances(false);
                       setIsPaid(false);
+                      setAcceptedLegal(false);
+                      setAcceptedWithdrawal(false);
                     }}
                     className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-left transition hover:border-red-400/30 hover:bg-red-500/10"
                   >
@@ -1438,6 +1628,8 @@ export default function RacePotentialPreview() {
                             setSelectedExtraDistanceIds([]);
                             setShowExtraDistances(false);
                             setIsPaid(false);
+                            setAcceptedLegal(false);
+                            setAcceptedWithdrawal(false);
                           }}
                           className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${active ? "border-red-400/25 bg-red-500/12 text-white shadow-lg shadow-red-500/10" : "border-white/10 bg-white/[0.03] text-white/75 hover:bg-white/[0.06]"}`}
                         >
@@ -1455,10 +1647,7 @@ export default function RacePotentialPreview() {
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70"><BarChart3 className="h-4 w-4 text-red-300" /> Built for 16 distances</div>
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                
-                
-              </div>
+              <div className="mt-5 flex flex-wrap gap-3"></div>
             </div>
 
             <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="relative rounded-[32px] border border-white/10 bg-white/[0.05] p-5 pt-16 shadow-2xl backdrop-blur before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-red-300/40 before:to-transparent sm:pt-14">
@@ -1516,6 +1705,8 @@ export default function RacePotentialPreview() {
                         setTargetId(nextTarget);
                         setSelectedExtraDistanceIds((prev) => prev.filter((id) => id !== nextTarget));
                         setIsPaid(false);
+                        setAcceptedLegal(false);
+                        setAcceptedWithdrawal(false);
                       }}
                       className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
                     >
@@ -1587,6 +1778,8 @@ export default function RacePotentialPreview() {
                       onChange={(e) => {
                         setForm((f) => ({ ...f, [d.id]: e.target.value }));
                         setIsPaid(false);
+                        setAcceptedLegal(false);
+                        setAcceptedWithdrawal(false);
                       }}
                       className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/25"
                     />
@@ -1707,6 +1900,15 @@ export default function RacePotentialPreview() {
                     ))}
                   </div>
 
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <div className="text-sm font-medium text-white">Important disclaimer</div>
+                    <p className="mt-2 text-sm leading-6 text-white/75">
+                      RacePotential provides model-based predictions only. Results are not guaranteed,
+                      are not medical advice, and should not replace professional coaching, diagnosis,
+                      or injury-related guidance.
+                    </p>
+                  </div>
+
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
                     <div className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
                       <div className="flex items-center gap-2 text-sm text-white/55"><Flame className="h-4 w-4" /> Athlete type</div>
@@ -1784,7 +1986,22 @@ export default function RacePotentialPreview() {
                     <ul className="mt-3 space-y-2 text-white/80">{result.methods.slice(0, 4).map((m) => <li key={m}>• {m}</li>)}</ul>
                   </div>
 
-                  <PremiumReportSection result={result} equivalents={equivalents} profile={profile} form={form} isPaid={isPaid} onUnlock={() => setIsPaid(true)} onDownloadPdf={handleDownloadPdf} />
+                  <PremiumReportSection
+                    result={result}
+                    equivalents={equivalents}
+                    profile={profile}
+                    form={form}
+                    isPaid={isPaid}
+                    onUnlock={() => setIsPaid(true)}
+                    onDownloadPdf={handleDownloadPdf}
+                    acceptedLegal={acceptedLegal}
+                    setAcceptedLegal={setAcceptedLegal}
+                    acceptedWithdrawal={acceptedWithdrawal}
+                    setAcceptedWithdrawal={setAcceptedWithdrawal}
+                    canUnlockPremium={canUnlockPremium}
+                    priceText={priceText}
+                    setLegalOpen={setLegalOpen}
+                  />
                 </motion.div>
               )}
             </StepSectionHeader>
@@ -1839,6 +2056,57 @@ export default function RacePotentialPreview() {
             </div>
           </div>
         </section>
+
+        <footer className="border-t border-white/10 bg-black/30">
+          <div className="mx-auto max-w-7xl px-6 py-10 lg:px-10">
+            <div className="grid gap-6 md:grid-cols-3">
+              <div>
+                <div className="text-lg font-semibold text-white">{siteName}</div>
+                <p className="mt-3 max-w-md text-sm leading-6 text-white/60">
+                  Multi-distance race potential calculator for runners from 100m to marathon.
+                  Results are predictive estimates only and should not be treated as guaranteed outcomes.
+                </p>
+              </div>
+
+              <div>
+                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-white/45">Legal</div>
+                <div className="mt-3 flex flex-col gap-2 text-sm">
+                  <button type="button" onClick={() => setLegalOpen("privacy")} className="text-left text-white/75 hover:text-white">
+                    Privacy Policy
+                  </button>
+                  <button type="button" onClick={() => setLegalOpen("terms")} className="text-left text-white/75 hover:text-white">
+                    Terms of Service
+                  </button>
+                  <button type="button" onClick={() => setLegalOpen("refund")} className="text-left text-white/75 hover:text-white">
+                    Refunds & Digital Content Notice
+                  </button>
+                  <button type="button" onClick={() => setLegalOpen("legal")} className="text-left text-white/75 hover:text-white">
+                    Legal Notice / Contact
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-white/45">Important</div>
+                <div className="mt-3 space-y-2 text-sm text-white/60">
+                  <p>Price shown before purchase: {priceText}</p>
+                  <p>Support: {supportEmail}</p>
+                  <p>No non-essential cookies should run before consent if you add analytics or marketing tools later.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 border-t border-white/10 pt-4 text-xs text-white/40">
+              © {new Date().getFullYear()} {siteName}. All rights reserved.
+            </div>
+          </div>
+        </footer>
+
+        <LegalModal
+          openKey={legalOpen}
+          onClose={() => setLegalOpen(null)}
+          legalContent={legalContent}
+        />
       </div>
     </div>
   );
