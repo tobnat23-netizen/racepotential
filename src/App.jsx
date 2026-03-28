@@ -1168,7 +1168,7 @@ function runSelfChecks() {
 
 runSelfChecks();
 
-export default function App() {
+export default function RacePotentialPreview() {
   const { scrollYProgress } = useScroll();
   const smoothScroll = useSpring(scrollYProgress, { stiffness: 55, damping: 24, mass: 0.55 });
   const glowY = useTransform(smoothScroll, [0, 1], ["-8%", "82%"]);
@@ -1467,7 +1467,7 @@ export default function App() {
                   <div className="text-xs uppercase tracking-[0.22em] text-white/45">Process</div>
                   <div className="text-xs uppercase tracking-[0.18em] text-white/35">Complete the steps below</div>
                 </div>
-                <p className="mt-3 text-sm text-white/55">Follow the steps in order to generate your prediction.</p>
+                <p className="mt-3 text-sm text-white/55">Step 1 starts here. The next steps continue further down the page.</p>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-4">
                   {processSteps.map((step, index) => {
@@ -1529,122 +1529,122 @@ export default function App() {
                   </div>
                 </div>
               </StepSectionHeader>
-
-              <div className="mt-4">
-                <StepSectionHeader step="STEP 2" title="Basic athlete details" description="">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label>
-                      <div className="mb-2 text-sm text-white/60">Sex category</div>
-                      <select value={form.sex} onChange={(e) => setForm((f) => ({ ...f, sex: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none">
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="open">Open</option>
-                      </select>
-                    </label>
-                    <label>
-                      <div className="mb-2 text-sm text-white/60">Age</div>
-                      <input value={form.age} placeholder="e.g. 21" onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
-                    </label>
-                  </div>
-                  <div className="mt-4">
-                    <label>
-                      <div className="mb-2 text-sm text-white/60">Sessions / week</div>
-                      <input value={form.training} placeholder="e.g. 6" onChange={(e) => setForm((f) => ({ ...f, training: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
-                    </label>
-                  </div>
-                </StepSectionHeader>
-              </div>
-
-              <div className="mt-4">
-                <StepSectionHeader step="STEP 3" title="Enter your other performances" description="">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {visibleInputs.map((d) => (
-                      <label key={d.id} className="block">
-                        <div className="mb-2 text-sm text-white/60">{d.label}</div>
-                        <input
-                          value={form[d.id]}
-                          placeholder={
-                            d.id === "100" ? "e.g. 10.85" :
-                            d.id === "200" ? "e.g. 21.90" :
-                            d.id === "300" ? "e.g. 34.80" :
-                            d.id === "400" ? "e.g. 49.50" :
-                            d.id === "600" ? "e.g. 1:20.50" :
-                            d.id === "800" ? "e.g. 1:52.40" :
-                            d.id === "1000" ? "e.g. 2:24.00" :
-                            d.id === "1500" ? "e.g. 3:45.20" :
-                            d.id === "mile" ? "e.g. 4:03.50" :
-                            d.id === "2000" ? "e.g. 5:08.00" :
-                            d.id === "3000" ? "e.g. 8:05.00" :
-                            d.id === "2mile" ? "e.g. 8:42.00" :
-                            d.id === "5000" ? "e.g. 14:35.00" :
-                            d.id === "10000" ? "e.g. 30:20.00" :
-                            d.id === "half" ? "e.g. 1:08:30" :
-                            d.id === "marathon" ? "e.g. 2:24:00" :
-                            "e.g. 49.50"
-                          }
-                          onChange={(e) => {
-                            setForm((f) => ({ ...f, [d.id]: e.target.value }));
-                            setIsPaid(false);
-                          }}
-                          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/25"
-                        />
-                      </label>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 border-t border-white/10 pt-5">
-                    <div className="mb-3 text-xs uppercase tracking-[0.18em] text-white/40">Optional addition to STEP 3</div>
-                    <button type="button" onClick={() => setShowExtraDistances((prev) => !prev)} className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/85 transition hover:bg-white/[0.07]">
-                      <Plus className="h-4 w-4 text-red-300" />
-                      Add more distances for a better estimate
-                      <ChevronDown className={`h-4 w-4 transition ${showExtraDistances ? "rotate-180" : ""}`} />
-                    </button>
-                    <p className="mt-2 text-xs leading-6 text-white/50">Add any extra race times you have. More relevant data usually gives the model a stronger estimate.</p>
-
-                    {showExtraDistances && (
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <div className="text-sm font-medium text-white">Additional distances</div>
-                        <div className="mt-1 text-xs leading-6 text-white/50">Select any additional events you want to include to help the prediction.</div>
-                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          {extraDistanceOptions.map((d) => {
-                            const checked = filteredExtraIds.includes(d.id);
-                            return (
-                              <label key={d.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-white/80">
-                                <input type="checkbox" checked={checked} onChange={() => toggleExtraDistance(d.id)} className="h-4 w-4" />
-                                <span>{d.label}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </StepSectionHeader>
-              </div>
             </motion.div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-6 py-10 lg:px-10">
-          <div className="grid gap-4 md:grid-cols-3">
-            {metricCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-[30px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.025] p-5 shadow-lg shadow-black/10">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-white/55">{card.label}</div>
-                    <Icon className="h-5 w-5 text-red-300" />
+        <section className="mx-auto max-w-5xl px-6 py-12 lg:px-10 lg:py-16">
+          <div className="space-y-6">
+            <StepSectionHeader step="STEP 2" title="Basic athlete details" description="" className="mx-auto w-full">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label>
+                  <div className="mb-2 text-sm text-white/60">Sex category</div>
+                  <select value={form.sex} onChange={(e) => setForm((f) => ({ ...f, sex: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="open">Open</option>
+                  </select>
+                </label>
+                <label>
+                  <div className="mb-2 text-sm text-white/60">Age</div>
+                  <input value={form.age} placeholder="e.g. 21" onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
+                </label>
+              </div>
+              <div className="mt-4">
+                <label>
+                  <div className="mb-2 text-sm text-white/60">Sessions / week</div>
+                  <input value={form.training} placeholder="e.g. 6" onChange={(e) => setForm((f) => ({ ...f, training: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
+                </label>
+              </div>
+            </StepSectionHeader>
+
+            <StepSectionHeader step="STEP 3" title="Enter your other performances" description="" className="mx-auto w-full">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {visibleInputs.map((d) => (
+                  <label key={d.id} className="block">
+                    <div className="mb-2 text-sm text-white/60">{d.label}</div>
+                    <input
+                      value={form[d.id]}
+                      placeholder={
+                        d.id === "100" ? "e.g. 10.85" :
+                        d.id === "200" ? "e.g. 21.90" :
+                        d.id === "300" ? "e.g. 34.80" :
+                        d.id === "400" ? "e.g. 49.50" :
+                        d.id === "600" ? "e.g. 1:20.50" :
+                        d.id === "800" ? "e.g. 1:52.40" :
+                        d.id === "1000" ? "e.g. 2:24.00" :
+                        d.id === "1500" ? "e.g. 3:45.20" :
+                        d.id === "mile" ? "e.g. 4:03.50" :
+                        d.id === "2000" ? "e.g. 5:08.00" :
+                        d.id === "3000" ? "e.g. 8:05.00" :
+                        d.id === "2mile" ? "e.g. 8:42.00" :
+                        d.id === "5000" ? "e.g. 14:35.00" :
+                        d.id === "10000" ? "e.g. 30:20.00" :
+                        d.id === "half" ? "e.g. 1:08:30" :
+                        d.id === "marathon" ? "e.g. 2:24:00" :
+                        "e.g. 49.50"
+                      }
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, [d.id]: e.target.value }));
+                        setIsPaid(false);
+                      }}
+                      className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/25"
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <div className="mt-5 border-t border-white/10 pt-5">
+                <div className="mb-3 text-xs uppercase tracking-[0.18em] text-white/40">Optional addition to STEP 3</div>
+                <button type="button" onClick={() => setShowExtraDistances((prev) => !prev)} className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/85 transition hover:bg-white/[0.07]">
+                  <Plus className="h-4 w-4 text-red-300" />
+                  Add more distances for a better estimate
+                  <ChevronDown className={`h-4 w-4 transition ${showExtraDistances ? "rotate-180" : ""}`} />
+                </button>
+                <p className="mt-2 text-xs leading-6 text-white/50">Add any extra race times you have. More relevant data usually gives the model a stronger estimate.</p>
+
+                {showExtraDistances && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-sm font-medium text-white">Additional distances</div>
+                    <div className="mt-1 text-xs leading-6 text-white/50">Select any additional events you want to include to help the prediction.</div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      {extraDistanceOptions.map((d) => {
+                        const checked = filteredExtraIds.includes(d.id);
+                        return (
+                          <label key={d.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-white/80">
+                            <input type="checkbox" checked={checked} onChange={() => toggleExtraDistance(d.id)} className="h-4 w-4" />
+                            <span>{d.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="mt-4 text-3xl font-semibold tracking-tight">{card.value}</div>
-                  <div className="mt-2 h-px w-full bg-gradient-to-r from-red-300/30 via-white/10 to-transparent" />
-                </motion.div>
-              );
-            })}
+                )}
+              </div>
+            </StepSectionHeader>
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-7xl gap-6 px-6 pb-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-10">
-          <div>
+        <section className="mx-auto max-w-5xl px-6 pb-16 lg:px-10">
+          <div className="space-y-6">
+            {!!metricCards.length && (
+              <div className="grid gap-4 md:grid-cols-3">
+                {metricCards.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-[30px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.025] p-5 shadow-lg shadow-black/10">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-white/55">{card.label}</div>
+                        <Icon className="h-5 w-5 text-red-300" />
+                      </div>
+                      <div className="mt-4 text-3xl font-semibold tracking-tight">{card.value}</div>
+                      <div className="mt-2 h-px w-full bg-gradient-to-r from-red-300/30 via-white/10 to-transparent" />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
             <StepSectionHeader
               step="STEP 4"
               title="Your predicted performance"
@@ -1683,114 +1683,112 @@ export default function App() {
                   viewport={{ once: true, amount: 0.15 }}
                   transition={{ duration: 0.55, ease: "easeOut" }}
                 >
-                <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                  <div className="sm:col-span-3 rounded-[28px] border border-white/10 bg-gradient-to-r from-red-500/10 via-white/[0.03] to-transparent p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <div className="text-xs uppercase tracking-[0.2em] text-white/45">Result summary</div>
-                        <div className="mt-2 text-3xl font-semibold tracking-tight">{result.target.label} potential: {formatSeconds(result.potentialTime)}</div>
-                        <div className="mt-2 text-sm leading-6 text-white/65">Estimated only from your other performances, not from a time entered for the target itself.</div>
-                      </div>
-                      <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-right">
-                        <div className="text-xs uppercase tracking-[0.2em] text-red-100/80">Headroom</div>
-                        <div className="mt-1 text-2xl font-semibold text-white">{result.untapped.toFixed(2)} s</div>
+                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    <div className="sm:col-span-3 rounded-[28px] border border-white/10 bg-gradient-to-r from-red-500/10 via-white/[0.03] to-transparent p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">Result summary</div>
+                          <div className="mt-2 text-3xl font-semibold tracking-tight">{result.target.label} potential: {formatSeconds(result.potentialTime)}</div>
+                          <div className="mt-2 text-sm leading-6 text-white/65">Estimated only from your other performances, not from a time entered for the target itself.</div>
+                        </div>
+                        <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-right">
+                          <div className="text-xs uppercase tracking-[0.2em] text-red-100/80">Headroom</div>
+                          <div className="mt-1 text-2xl font-semibold text-white">{result.untapped.toFixed(2)} s</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {[["Speed", result.speedScore], ["Endurance", result.enduranceScore], ["Speed endurance", result.speedEnduranceScore]].map(([label, score]) => (
-                    <div key={label} className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
-                      <div className="text-sm text-white/55">{label}</div>
-                      <div className="mt-2 text-2xl font-semibold">{score}/100</div>
-                      <div className="mt-3 h-2 rounded-full bg-white/10"><div className="h-2 rounded-full bg-red-400" style={{ width: `${score}%` }} /></div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
-                    <div className="flex items-center gap-2 text-sm text-white/55"><Flame className="h-4 w-4" /> Athlete type</div>
-                    <div className="mt-2 text-2xl font-semibold">{result.athleteType}</div>
-                    <p className="mt-3 text-sm leading-6 text-white/65">{result.athleteTypeSummary}</p>
-                  </div>
-                  <div className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
-                    <div className="flex items-center gap-2 text-sm text-white/55"><TrendingDown className="h-4 w-4" /> Untapped potential</div>
-                    <div className="mt-2 text-2xl font-semibold">{result.untapped.toFixed(2)} s</div>
-                    <p className="mt-3 text-sm leading-6 text-white/65">This is a bounded upside estimate, not a fantasy number. The goal is realistic headroom, not fake certainty.</p>
-                  </div>
-                </div>
-
-                <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
-                  <div className="flex items-center gap-2 text-sm text-white/60"><Sparkles className="h-4 w-4" /> Short personal feedback</div>
-                  <div className="mt-3 rounded-2xl border border-red-400/15 bg-red-500/10 p-4">
-                    <div className="text-sm font-medium text-white">{result.shortFeedback.headline}</div>
-                    <div className="mt-2 text-sm leading-6 text-white/70">{result.shortFeedback.summary}</div>
-                    <p className="mt-3 text-sm leading-7 text-white/85">{result.shortFeedback.body}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
-                  <div className="flex items-center gap-2 text-sm text-white/60"><CheckCircle2 className="h-4 w-4" /> What you seem good at</div>
-                  <ul className="mt-3 space-y-2 text-white/85">{result.strengths.map((item) => <li key={item}>• {item}</li>)}</ul>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
-                  <div className="flex items-center gap-2 text-sm text-white/60"><TrendingDown className="h-4 w-4" /> What you should train more</div>
-                  <ul className="mt-3 space-y-2 text-white/85">{result.needs.map((item) => <li key={item}>• {item}</li>)}</ul>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
-                  <div className="flex items-center gap-2 text-sm text-white/60"><Medal className="h-4 w-4" /> Best event fit</div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    {bestEventRanking.map((row, index) => (
-                      <div key={row.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                        <div className="text-xs uppercase tracking-[0.2em] text-white/45">#{index + 1}</div>
-                        <div className="mt-2 text-lg font-semibold text-white/90">{row.label}</div>
+                    {[["Speed", result.speedScore], ["Endurance", result.enduranceScore], ["Speed endurance", result.speedEnduranceScore]].map(([label, score]) => (
+                      <div key={label} className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
+                        <div className="text-sm text-white/55">{label}</div>
+                        <div className="mt-2 text-2xl font-semibold">{score}/100</div>
+                        <div className="mt-3 h-2 rounded-full bg-white/10"><div className="h-2 rounded-full bg-red-400" style={{ width: `${score}%` }} /></div>
                       </div>
                     ))}
                   </div>
-                </div>
 
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
-                  <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Equivalent performances</div>
-                  {!isPaid ? (
-                    <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                      <div className="flex items-center gap-2 text-sm text-white/70"><Lock className="h-4 w-4" /> Premium only</div>
-                      <p className="mt-3 text-sm leading-6 text-white/60">
-                        Unlock to see your equivalent performances across nearby events. This is especially useful for comparing how your profile translates from 100m to 1000m and beyond.
-                      </p>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">400m — 49.8x</div>
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">800m — 1:53.xx</div>
-                      </div>
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
+                      <div className="flex items-center gap-2 text-sm text-white/55"><Flame className="h-4 w-4" /> Athlete type</div>
+                      <div className="mt-2 text-2xl font-semibold">{result.athleteType}</div>
+                      <p className="mt-3 text-sm leading-6 text-white/65">{result.athleteTypeSummary}</p>
                     </div>
-                  ) : (
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      {equivalents.map((row) => (
-                        <div key={row.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                          <div>
-                            <div className="text-white/75">{row.label}</div>
-                            <div className="mt-1 text-xs text-white/45">{row.confidence} confidence</div>
-                          </div>
-                          <div className="font-semibold text-white">{formatSeconds(row.time)}</div>
+                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
+                      <div className="flex items-center gap-2 text-sm text-white/55"><TrendingDown className="h-4 w-4" /> Untapped potential</div>
+                      <div className="mt-2 text-2xl font-semibold">{result.untapped.toFixed(2)} s</div>
+                      <p className="mt-3 text-sm leading-6 text-white/65">This is a bounded upside estimate, not a fantasy number. The goal is realistic headroom, not fake certainty.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><Sparkles className="h-4 w-4" /> Short personal feedback</div>
+                    <div className="mt-3 rounded-2xl border border-red-400/15 bg-red-500/10 p-4">
+                      <div className="text-sm font-medium text-white">{result.shortFeedback.headline}</div>
+                      <div className="mt-2 text-sm leading-6 text-white/70">{result.shortFeedback.summary}</div>
+                      <p className="mt-3 text-sm leading-7 text-white/85">{result.shortFeedback.body}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><CheckCircle2 className="h-4 w-4" /> What you seem good at</div>
+                    <ul className="mt-3 space-y-2 text-white/85">{result.strengths.map((item) => <li key={item}>• {item}</li>)}</ul>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><TrendingDown className="h-4 w-4" /> What you should train more</div>
+                    <ul className="mt-3 space-y-2 text-white/85">{result.needs.map((item) => <li key={item}>• {item}</li>)}</ul>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><Medal className="h-4 w-4" /> Best event fit</div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      {bestEventRanking.map((row, index) => (
+                        <div key={row.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">#{index + 1}</div>
+                          <div className="mt-2 text-lg font-semibold text-white/90">{row.label}</div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
-                  <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Main models used</div>
-                  <ul className="mt-3 space-y-2 text-white/80">{result.methods.slice(0, 4).map((m) => <li key={m}>• {m}</li>)}</ul>
-                </div>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Equivalent performances</div>
+                    {!isPaid ? (
+                      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex items-center gap-2 text-sm text-white/70"><Lock className="h-4 w-4" /> Premium only</div>
+                        <p className="mt-3 text-sm leading-6 text-white/60">
+                          Unlock to see your equivalent performances across nearby events. This is especially useful for comparing how your profile translates from 100m to 1000m and beyond.
+                        </p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">400m — 49.8x</div>
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">800m — 1:53.xx</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {equivalents.map((row) => (
+                          <div key={row.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div>
+                              <div className="text-white/75">{row.label}</div>
+                              <div className="mt-1 text-xs text-white/45">{row.confidence} confidence</div>
+                            </div>
+                            <div className="font-semibold text-white">{formatSeconds(row.time)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-                                <PremiumReportSection result={result} equivalents={equivalents} profile={profile} form={form} isPaid={isPaid} onUnlock={() => setIsPaid(true)} onDownloadPdf={handleDownloadPdf} />
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Main models used</div>
+                    <ul className="mt-3 space-y-2 text-white/80">{result.methods.slice(0, 4).map((m) => <li key={m}>• {m}</li>)}</ul>
+                  </div>
+
+                  <PremiumReportSection result={result} equivalents={equivalents} profile={profile} form={form} isPaid={isPaid} onUnlock={() => setIsPaid(true)} onDownloadPdf={handleDownloadPdf} />
                 </motion.div>
               )}
             </StepSectionHeader>
-          </div>
 
-          <div className="space-y-6">
             <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-red-500/20 to-white/5 p-6 shadow-xl shadow-red-500/10 before:absolute before:-right-16 before:-top-16 before:h-40 before:w-40 before:rounded-full before:bg-red-400/10 before:blur-3xl">
               <div className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-white/55"><Share2 className="h-4 w-4" /> Share card preview</div>
               <div className="mt-5 overflow-hidden rounded-[30px] border border-white/10 bg-neutral-950 p-6 shadow-2xl ring-1 ring-white/5">
@@ -1841,6 +1839,10 @@ export default function App() {
             </div>
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
       </div>
     </div>
   );
