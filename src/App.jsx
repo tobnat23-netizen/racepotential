@@ -1,14 +1,18 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import {
   Activity,
   BarChart3,
+  Check,
   CheckCircle2,
   ChevronDown,
+  Copy,
+  Download,
   Flame,
   Gauge,
-  Info,
+  Link2,
   Lock,
   MapPin,
   Medal,
@@ -747,34 +751,6 @@ function getProcessState({ targetId, form, visibleInputs, result }) {
   };
 }
 
-function processClasses(state) {
-  if (state === "done") {
-    return {
-      card: "border-red-400/25 bg-gradient-to-br from-red-500/12 to-white/[0.04] shadow-lg shadow-red-500/10",
-      pill: "bg-red-500/15 text-red-200 border-red-400/25",
-      title: "text-white",
-      text: "text-white/70",
-      dot: "bg-red-400",
-    };
-  }
-  if (state === "current") {
-    return {
-      card: "border-white/15 bg-white/[0.06] ring-1 ring-white/10 shadow-lg shadow-black/20",
-      pill: "bg-white/10 text-white border-white/15",
-      title: "text-white",
-      text: "text-white/75",
-      dot: "bg-white",
-    };
-  }
-  return {
-    card: "border-white/10 bg-white/[0.03]",
-    pill: "bg-transparent text-white/45 border-white/10",
-    title: "text-white/70",
-    text: "text-white/45",
-    dot: "bg-white/25",
-  };
-}
-
 function RacePotentialLogo({ size = 42 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1106,8 +1082,7 @@ function PremiumReportSection({
                 className="mt-1 h-4 w-4 shrink-0"
               />
               <span>
-                I request immediate access to the premium digital report and acknowledge that,
-                where applicable, I may lose my withdrawal right once digital delivery begins. Read{" "}
+                I request immediate access to the premium digital report and acknowledge that, where applicable, I may lose my withdrawal right once digital delivery begins. Read{" "}
                 <button
                   type="button"
                   onClick={() => setLegalOpen("refund")}
@@ -1119,8 +1094,7 @@ function PremiumReportSection({
             </label>
 
             <p className="mt-3 text-xs leading-6 text-white/50">
-              This tool provides model-based estimates only. It does not provide medical advice,
-              injury advice, or guaranteed performance outcomes.
+              This tool provides model-based estimates only. It does not provide medical advice, injury advice, or guaranteed performance outcomes.
             </p>
           </div>
         </div>
@@ -1130,8 +1104,12 @@ function PremiumReportSection({
         <div className="mt-6 space-y-6">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
             <div className="text-xs uppercase tracking-[0.18em] text-white/45">Predicted performance</div>
-            <div className="mt-2 text-3xl font-semibold text-white">{result.target.label}: {formatSeconds(result.potentialTime)}</div>
-            <div className="mt-2 text-sm leading-6 text-white/65">Realistic current level: {formatSeconds(result.currentTime)} · Headroom: {result.untapped.toFixed(2)} s · Confidence: {result.confidence}</div>
+            <div className="mt-2 text-3xl font-semibold text-white">
+              {result.target.label}: {formatSeconds(result.potentialTime)}
+            </div>
+            <div className="mt-2 text-sm leading-6 text-white/65">
+              Realistic current level: {formatSeconds(result.currentTime)} · Headroom: {result.untapped.toFixed(2)} s · Confidence: {result.confidence}
+            </div>
           </div>
 
           {!!equivalents?.length && (
@@ -1164,8 +1142,12 @@ function PremiumReportSection({
             <div className="mt-3 rounded-xl border border-red-400/15 bg-red-500/10 p-4">
               <div className="text-lg font-semibold text-white">{advice.primarySession.title}</div>
               <div className="mt-2 text-sm leading-7 text-white/80">{advice.primarySession.goal}</div>
-              <div className="mt-3 text-sm leading-7 text-white/90"><span className="font-semibold text-white">Prescription:</span> {advice.primarySession.prescription}</div>
-              <div className="mt-2 text-sm leading-7 text-white/75"><span className="font-semibold text-white">Execution note:</span> {advice.primarySession.coaching}</div>
+              <div className="mt-3 text-sm leading-7 text-white/90">
+                <span className="font-semibold text-white">Prescription:</span> {advice.primarySession.prescription}
+              </div>
+              <div className="mt-2 text-sm leading-7 text-white/75">
+                <span className="font-semibold text-white">Execution note:</span> {advice.primarySession.coaching}
+              </div>
             </div>
           </div>
 
@@ -1173,7 +1155,9 @@ function PremiumReportSection({
             <div className="text-xs uppercase tracking-[0.18em] text-white/45">Suggested training structure</div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {advice.weeklyStructure.map((day, idx) => (
-                <div key={idx} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/78">{day}</div>
+                <div key={idx} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/78">
+                  {day}
+                </div>
               ))}
             </div>
           </div>
@@ -1290,6 +1274,11 @@ export default function RacePotentialPreview() {
   const [legalOpen, setLegalOpen] = useState(null);
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [acceptedWithdrawal, setAcceptedWithdrawal] = useState(false);
+  const [copiedShareText, setCopiedShareText] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [downloadedCard, setDownloadedCard] = useState(false);
+  const shareCardRef = useRef(null);
+
   const [form, setForm] = useState({
     sex: "male",
     age: "",
@@ -1381,100 +1370,12 @@ export default function RacePotentialPreview() {
       })
     : [];
 
-  const extraDistanceOptions = profile ? DISTANCES.filter((d) => !currentProfileConfig.inputs.includes(d.id) && d.id !== targetId) : [];
+  const extraDistanceOptions = profile
+    ? DISTANCES.filter((d) => !currentProfileConfig.inputs.includes(d.id) && d.id !== targetId)
+    : [];
 
   const toggleExtraDistance = (id) => {
     setSelectedExtraDistanceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const handleDownloadPdf = () => {
-    if (!result) return;
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const left = 44;
-    const right = doc.internal.pageSize.getWidth() - 44;
-    let y = 52;
-    const fullReportLines = buildPdfReportLines(result, equivalents, profile, form);
-
-    const ensurePage = (next = 24) => {
-      if (y + next > 760) {
-        doc.addPage();
-        y = 52;
-      }
-    };
-
-    const writeParagraph = (text, size = 11, color = [35, 35, 35], gap = 16) => {
-      ensurePage(size + gap + 30);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(size);
-      doc.setTextColor(color[0], color[1], color[2]);
-      const lines = doc.splitTextToSize(String(text), right - left);
-      doc.text(lines, left, y);
-      y += lines.length * (size + 4) + gap;
-    };
-
-    const writeSection = (text) => {
-      ensurePage(40);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(220, 38, 38);
-      doc.text(String(text).toUpperCase(), left, y);
-      y += 18;
-    };
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(24);
-    doc.setTextColor(18, 18, 18);
-    doc.text("RacePotential Report", left, y);
-    y += 20;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(110, 110, 110);
-    doc.text("Personalized race potential report", left, y);
-    y += 24;
-    doc.setDrawColor(230, 230, 230);
-    doc.line(left, y, right, y);
-    y += 24;
-
-    writeSection("Core results");
-    writeParagraph("Selected profile: " + (profile ? PROFILE_CONFIG[profile].label : "Runner"), 11, [40, 40, 40], 8);
-    writeParagraph("Target event: " + result.target.label, 11, [40, 40, 40], 8);
-    writeParagraph("Predicted current level: " + formatSeconds(result.currentTime), 11, [40, 40, 40], 8);
-    writeParagraph("True potential: " + formatSeconds(result.potentialTime), 11, [40, 40, 40], 8);
-    writeParagraph("Realistic range: " + formatSeconds(result.low) + " – " + formatSeconds(result.high), 11, [40, 40, 40], 8);
-    writeParagraph("Confidence: " + result.confidence, 11, [40, 40, 40], 8);
-    writeParagraph("Athlete type: " + result.athleteType, 11, [40, 40, 40], 16);
-
-    writeSection("Equivalent performances");
-    if (equivalents.length) {
-      equivalents.forEach((row) => writeParagraph(row.label + ": " + formatSeconds(row.time), 11, [35, 35, 35], 4));
-      y += 10;
-    } else {
-      writeParagraph("Not enough data yet to build strong equivalent performances.", 11, [80, 80, 80], 10);
-    }
-
-    writeSection("Detailed report");
-    fullReportLines.forEach((line) => {
-      if (String(line).trim() === "") {
-        y += 8;
-      } else {
-        writeParagraph(line, 11, [35, 35, 35], 6);
-      }
-    });
-
-    ensurePage(40);
-    doc.setDrawColor(230, 230, 230);
-    doc.line(left, 785, right, 785);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(220, 38, 38);
-    doc.text("RacePotential", left, 804);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(110, 110, 110);
-    doc.text("Predict your next breakthrough", right, 804, { align: "right" });
-
-    const safeProfile = (profile ? PROFILE_CONFIG[profile].label : "runner").split(" ").join("-").toLowerCase();
-    const safeTarget = String(result.target.label).split(" ").join("-").toLowerCase();
-    doc.save("racepotential-" + safeProfile + "-" + safeTarget + "-report.pdf");
   };
 
   const siteName = "RacePotential";
@@ -1486,6 +1387,312 @@ export default function RacePotentialPreview() {
   const priceText = "$0.99";
 
   const canUnlockPremium = acceptedLegal && acceptedWithdrawal;
+
+  const shareSummaryText = result
+    ? `My RacePotential result: ${result.target.label} potential ${formatSeconds(result.potentialTime)} · Confidence: ${result.confidence} · ${siteUrl}`
+    : `Check out ${siteName} — ${siteUrl}`;
+
+  const handleCopyShareText = async () => {
+    try {
+      await navigator.clipboard.writeText(shareSummaryText);
+      setCopiedShareText(true);
+      setTimeout(() => setCopiedShareText(false), 1800);
+    } catch (error) {
+      console.error("Failed to copy share text:", error);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(siteUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1800);
+    } catch (error) {
+      console.error("Failed to copy link:", error);
+    }
+  };
+
+  const handleDownloadShareCard = async () => {
+    if (!shareCardRef.current) return;
+
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: "#0a0a0a",
+        scale: 2,
+        useCORS: true,
+      });
+
+      const link = document.createElement("a");
+      const safeTarget = result?.target?.label ? String(result.target.label).replace(/\s+/g, "-").toLowerCase() : "result";
+      link.download = `racepotential-share-card-${safeTarget}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+
+      setDownloadedCard(true);
+      setTimeout(() => setDownloadedCard(false), 1800);
+    } catch (error) {
+      console.error("Failed to download share card:", error);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!result) return;
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const colors = {
+      bg: [10, 10, 10],
+      panel: [20, 20, 20],
+      panel2: [28, 28, 28],
+      border: [55, 55, 55],
+      muted: [170, 170, 170],
+      text: [245, 245, 245],
+      red: [239, 68, 68],
+      redSoft: [110, 32, 32],
+      whiteSoft: [215, 215, 215],
+    };
+
+    const marginX = 36;
+    let y = 34;
+
+    const safeProfileLabel = profile ? PROFILE_CONFIG[profile].label : "Runner";
+
+    const addPage = () => {
+      doc.addPage();
+      y = 34;
+      drawPageBackground();
+      drawFooter();
+    };
+
+    const ensureSpace = (needed) => {
+      if (y + needed > pageHeight - 58) addPage();
+    };
+
+    const drawPageBackground = () => {
+      doc.setFillColor(...colors.bg);
+      doc.rect(0, 0, pageWidth, pageHeight, "F");
+    };
+
+    const drawFooter = () => {
+      doc.setDrawColor(...colors.border);
+      doc.line(marginX, pageHeight - 28, pageWidth - marginX, pageHeight - 28);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...colors.red);
+      doc.text("RacePotential", marginX, pageHeight - 12);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.muted);
+      doc.text("Predict your next breakthrough", pageWidth - marginX, pageHeight - 12, { align: "right" });
+    };
+
+    const drawHeader = () => {
+      doc.setFillColor(...colors.panel);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, 98, 18, 18, "F");
+
+      doc.setFillColor(...colors.redSoft);
+      doc.roundedRect(marginX + 16, y + 16, 120, 24, 12, 12, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...colors.text);
+      doc.text("PREMIUM REPORT", marginX + 28, y + 32);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(24);
+      doc.setTextColor(...colors.text);
+      doc.text("RacePotential Report", marginX + 16, y + 62);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(...colors.whiteSoft);
+      doc.text(`${safeProfileLabel} profile · ${result.target.label} target`, marginX + 16, y + 82);
+
+      y += 116;
+    };
+
+    const drawMetricCards = () => {
+      const gap = 10;
+      const totalWidth = pageWidth - marginX * 2;
+      const cardWidth = (totalWidth - gap * 2) / 3;
+      const cardHeight = 78;
+
+      const cards = [
+        { label: "Current level", value: formatSeconds(result.currentTime) },
+        { label: "True potential", value: formatSeconds(result.potentialTime) },
+        { label: "Confidence", value: result.confidence },
+      ];
+
+      ensureSpace(cardHeight + 16);
+
+      cards.forEach((card, index) => {
+        const x = marginX + index * (cardWidth + gap);
+        doc.setFillColor(...colors.panel2);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 14, 14, "F");
+        doc.setDrawColor(...colors.border);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 14, 14, "S");
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.muted);
+        doc.text(card.label.toUpperCase(), x + 12, y + 20);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.setTextColor(...colors.text);
+        doc.text(String(card.value), x + 12, y + 48);
+      });
+
+      y += cardHeight + 16;
+    };
+
+    const drawSectionTitle = (title) => {
+      ensureSpace(26);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(...colors.red);
+      doc.text(String(title).toUpperCase(), marginX, y);
+      y += 18;
+    };
+
+    const drawParagraphBox = (text, options = {}) => {
+      const {
+        fill = colors.panel,
+        border = colors.border,
+        textColor = colors.whiteSoft,
+        fontSize = 11,
+        lineHeight = 16,
+        padding = 14,
+      } = options;
+
+      const maxWidth = pageWidth - marginX * 2 - padding * 2;
+      const lines = doc.splitTextToSize(String(text), maxWidth);
+      const boxHeight = lines.length * lineHeight + padding * 2 - 4;
+
+      ensureSpace(boxHeight + 10);
+
+      doc.setFillColor(...fill);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, 14, 14, "F");
+      doc.setDrawColor(...border);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, 14, 14, "S");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(...textColor);
+      doc.text(lines, marginX + padding, y + padding + 8);
+
+      y += boxHeight + 10;
+    };
+
+    const drawBulletListBox = (items) => {
+      const text = items.map((item) => `• ${item}`).join("\n");
+      drawParagraphBox(text);
+    };
+
+    const drawTwoColumnMiniCards = (items) => {
+      const gap = 10;
+      const totalWidth = pageWidth - marginX * 2;
+      const cardWidth = (totalWidth - gap) / 2;
+      const lineHeight = 15;
+      const padding = 12;
+
+      const rows = [];
+      for (let i = 0; i < items.length; i += 2) {
+        rows.push(items.slice(i, i + 2));
+      }
+
+      rows.forEach((row) => {
+        const heights = row.map((text) => {
+          const lines = doc.splitTextToSize(String(text), cardWidth - padding * 2);
+          return lines.length * lineHeight + padding * 2;
+        });
+
+        const rowHeight = Math.max(...heights, 48);
+        ensureSpace(rowHeight + 10);
+
+        row.forEach((text, idx) => {
+          const x = marginX + idx * (cardWidth + gap);
+          const lines = doc.splitTextToSize(String(text), cardWidth - padding * 2);
+
+          doc.setFillColor(...colors.panel2);
+          doc.roundedRect(x, y, cardWidth, rowHeight, 12, 12, "F");
+          doc.setDrawColor(...colors.border);
+          doc.roundedRect(x, y, cardWidth, rowHeight, 12, 12, "S");
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10.5);
+          doc.setTextColor(...colors.whiteSoft);
+          doc.text(lines, x + padding, y + padding + 6);
+        });
+
+        y += rowHeight + 10;
+      });
+    };
+
+    const advice = buildTrainingAdvice(result, profile, form);
+
+    drawPageBackground();
+    drawFooter();
+    drawHeader();
+    drawMetricCards();
+
+    drawSectionTitle("Core result");
+    drawParagraphBox(
+      `RacePotential estimates your realistic current level around ${formatSeconds(result.currentTime)} and your stronger upside around ${formatSeconds(result.potentialTime)}. That creates an estimated headroom of ${result.untapped.toFixed(2)} seconds for ${result.target.label}.`
+    );
+
+    drawSectionTitle("Athlete profile");
+    drawTwoColumnMiniCards([
+      `Athlete type\n${result.athleteType}`,
+      `Score profile\nSpeed ${result.speedScore}/100 · Endurance ${result.enduranceScore}/100 · Speed Endurance ${result.speedEnduranceScore}/100`,
+    ]);
+    drawParagraphBox(result.athleteTypeSummary);
+
+    drawSectionTitle("What you seem good at");
+    drawBulletListBox(result.strengths);
+
+    drawSectionTitle("What you should train more");
+    drawBulletListBox(result.needs);
+
+    drawSectionTitle("Equivalent performances");
+    if (equivalents.length) {
+      drawTwoColumnMiniCards(equivalents.map((eq) => `${eq.label}\n${formatSeconds(eq.time)} · ${eq.confidence} confidence`));
+    } else {
+      drawParagraphBox("Not enough data yet to build strong equivalent performances.");
+    }
+
+    drawSectionTitle("Specific session to improve your limiter");
+    drawParagraphBox(
+      `${advice.primarySession.title}\n\nGoal: ${advice.primarySession.goal}\n\nPrescription: ${advice.primarySession.prescription}\n\nExecution note: ${advice.primarySession.coaching}`,
+      { fill: [34, 18, 18], border: colors.redSoft, textColor: colors.text }
+    );
+
+    drawSectionTitle("Suggested training structure");
+    drawTwoColumnMiniCards(advice.weeklyStructure);
+
+    drawSectionTitle("Detailed report");
+    buildPdfReportLines(result, equivalents, profile, form).forEach((line) => {
+      if (String(line).trim() === "") {
+        y += 4;
+      } else if (
+        line === "What the model thinks you already do well:" ||
+        line === "What is holding you back most right now:" ||
+        line === "Equivalent performances based on your current profile:" ||
+        line === "The clearest training conclusion:" ||
+        line === "Other session types that would support improvement:" ||
+        line === "Suggested weekly structure:" ||
+        line === "What to expect if you apply this well:"
+      ) {
+        drawSectionTitle(line);
+      } else {
+        drawParagraphBox(line, { fill: colors.panel2, border: colors.border, textColor: colors.whiteSoft, fontSize: 10.5, lineHeight: 15, padding: 12 });
+      }
+    });
+
+    const safeProfile = safeProfileLabel.split(" ").join("-").toLowerCase();
+    const safeTarget = String(result.target.label).split(" ").join("-").toLowerCase();
+    doc.save(`racepotential-${safeProfile}-${safeTarget}-report.pdf`);
+  };
 
   const legalContent = {
     privacy: {
@@ -1646,8 +1853,6 @@ This website offers an athletic performance prediction tool and optional paid di
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70"><Zap className="h-4 w-4 text-red-300" /> AI-backed race potential engine</div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70"><BarChart3 className="h-4 w-4 text-red-300" /> Built for 16 distances</div>
               </div>
-
-              <div className="mt-5 flex flex-wrap gap-3"></div>
             </div>
 
             <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="relative rounded-[32px] border border-white/10 bg-white/[0.05] p-5 pt-16 shadow-2xl backdrop-blur before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-red-300/40 before:to-transparent sm:pt-14">
@@ -1666,11 +1871,7 @@ This website offers an athletic performance prediction tool and optional paid di
                     return (
                       <div key={step.key} className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <div className="flex items-center gap-2">
-                          <div
-                            className={`h-2.5 w-2.5 rounded-full ${
-                              isDone ? "bg-red-400" : isCurrent ? "bg-white" : "bg-white/25"
-                            }`}
-                          />
+                          <div className={`h-2.5 w-2.5 rounded-full ${isDone ? "bg-red-400" : isCurrent ? "bg-white" : "bg-white/25"}`} />
                           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">{step.label}</div>
                         </div>
                         <div className={`mt-3 text-base font-semibold ${isCurrent || isDone ? "text-white" : "text-white/60"}`}>{step.title}</div>
@@ -1716,7 +1917,7 @@ This website offers an athletic performance prediction tool and optional paid di
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
                     <div className="text-sm text-white/50">Selected target</div>
                     <div className="mt-1 text-2xl font-semibold text-white">{getDistanceById(targetId)?.label || "400m"}</div>
-                    <div className="mt-2 text-sm text-white/60">The input list below automatically hides this event.</div>
+                    <div className="mt-2 text-sm text-white/60">You do not need to enter a time for this event. The model predicts it from your other results.</div>
                   </div>
                 </div>
               </StepSectionHeader>
@@ -1794,7 +1995,7 @@ This website offers an athletic performance prediction tool and optional paid di
                   Add more distances for a better estimate
                   <ChevronDown className={`h-4 w-4 transition ${showExtraDistances ? "rotate-180" : ""}`} />
                 </button>
-                <p className="mt-2 text-xs leading-6 text-white/50">Add any extra race times you have. More relevant data usually gives the model a stronger estimate.</p>
+                <p className="mt-2 text-xs leading-6 text-white/50">Add any extra race times you have. More relevant inputs usually improve confidence and tighten the estimate.</p>
 
                 {showExtraDistances && (
                   <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -1838,12 +2039,7 @@ This website offers an athletic performance prediction tool and optional paid di
               </div>
             )}
 
-            <StepSectionHeader
-              step="STEP 4"
-              title="Your predicted performance"
-              description=""
-              className="p-6"
-            >
+            <StepSectionHeader step="STEP 4" title="Your predicted performance" description="" className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-2xl font-semibold">Personal result breakdown</h2>
                 {result ? (
@@ -1864,7 +2060,7 @@ This website offers an athletic performance prediction tool and optional paid di
                   <div className="text-sm uppercase tracking-[0.18em] text-white/40">Awaiting your inputs</div>
                   <div className="mt-3 text-3xl font-semibold text-white/75">Your result will appear here</div>
                   <p className="mt-3 text-sm leading-6 text-white/50">
-                    Complete STEP 1–3 above, then scroll back here for your predicted performance, event fit, and premium report preview.
+                    Complete STEP 1–3 above and your predicted performance will appear here automatically.
                   </p>
                 </motion.div>
               )}
@@ -2007,52 +2203,111 @@ This website offers an athletic performance prediction tool and optional paid di
             </StepSectionHeader>
 
             <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-red-500/20 to-white/5 p-6 shadow-xl shadow-red-500/10 before:absolute before:-right-16 before:-top-16 before:h-40 before:w-40 before:rounded-full before:bg-red-400/10 before:blur-3xl">
-              <div className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-white/55"><Share2 className="h-4 w-4" /> Share card preview</div>
-              <div className="mt-5 overflow-hidden rounded-[30px] border border-white/10 bg-neutral-950 p-6 shadow-2xl ring-1 ring-white/5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-white/55">
+                  <Share2 className="h-4 w-4" /> Share card
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyShareText}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-white/80 transition hover:bg-white/[0.08]"
+                  >
+                    {copiedShareText ? <Check className="h-4 w-4 text-green-300" /> : <Copy className="h-4 w-4" />}
+                    {copiedShareText ? "Copied text" : "Copy result text"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-white/80 transition hover:bg-white/[0.08]"
+                  >
+                    {copiedLink ? <Check className="h-4 w-4 text-green-300" /> : <Link2 className="h-4 w-4" />}
+                    {copiedLink ? "Copied link" : "Copy link"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadShareCard}
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-500/20"
+                  >
+                    {downloadedCard ? <Check className="h-4 w-4 text-green-300" /> : <Download className="h-4 w-4" />}
+                    {downloadedCard ? "Downloaded" : "Download card"}
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-3 text-sm leading-6 text-white/60">
+                Share your result by copying the summary or downloading the card as an image.
+              </p>
+
+              <div
+                ref={shareCardRef}
+                className="mt-5 overflow-hidden rounded-[30px] border border-white/10 bg-neutral-950 p-6 shadow-2xl ring-1 ring-white/5"
+              >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-red-200"><Share2 className="h-3.5 w-3.5" /> Share result</div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/45"><Activity className="h-3.5 w-3.5" /> RacePotential.app</div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-red-200">
+                    <Share2 className="h-3.5 w-3.5" /> Share result
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/45">
+                    <Activity className="h-3.5 w-3.5" /> RacePotential.app
+                  </div>
                 </div>
-                <div className="mt-6 flex items-center gap-3"><RacePotentialLogo size={34} /></div>
-                <div className="mt-5 text-sm uppercase tracking-[0.22em] text-red-300">True {result?.target.label || "Race"} Potential</div>
-                <div className="mt-4 text-5xl font-semibold tracking-tight">{result ? formatSeconds(result.potentialTime) : "49.15"}</div>
-                <div className="mt-3 max-w-md text-white/70">Built from your {profile ? PROFILE_CONFIG[profile].label.toLowerCase() : "athlete"} profile and your selected event range</div>
+
+                <div className="mt-6 flex items-center gap-3">
+                  <RacePotentialLogo size={34} />
+                </div>
+
+                <div className="mt-5 text-sm uppercase tracking-[0.22em] text-red-300">
+                  True {result?.target.label || "Race"} Potential
+                </div>
+
+                <div className="mt-4 text-5xl font-semibold tracking-tight">
+                  {result ? formatSeconds(result.potentialTime) : "49.15"}
+                </div>
+
+                <div className="mt-3 max-w-md text-white/70">
+                  Built from your {profile ? PROFILE_CONFIG[profile].label.toLowerCase() : "athlete"} profile and your selected event range
+                </div>
+
                 <div className="mt-6 flex flex-wrap gap-2">
-                  <div className="inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm text-red-100">± {result ? result.uncertainty : "0.50"} realistic uncertainty</div>
-                  <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/75">Confidence: {result?.confidence || "Moderate"}</div>
+                  <div className="inline-flex rounded-full border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm text-red-100">
+                    ± {result ? result.uncertainty : "0.50"} realistic uncertainty
+                  </div>
+                  <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/75">
+                    Confidence: {result?.confidence || "Moderate"}
+                  </div>
                 </div>
+
                 <div className="mt-8 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-white/45">Athlete type</div>
-                    <div className="mt-2 text-lg font-semibold text-white/90">{result ? result.athleteType : "Athlete profile"}</div>
+                    <div className="mt-2 text-lg font-semibold text-white/90">
+                      {result ? result.athleteType : "Athlete profile"}
+                    </div>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-white/45">Target</div>
-                    <div className="mt-2 text-lg font-semibold text-white/90">{result?.target.label || "400m"}</div>
+                    <div className="mt-2 text-lg font-semibold text-white/90">
+                      {result?.target.label || "400m"}
+                    </div>
                   </div>
                 </div>
+
                 <div className="mt-6 rounded-2xl border border-white/10 bg-gradient-to-r from-red-500/10 via-white/[0.03] to-transparent p-4">
                   <div className="text-xs uppercase tracking-[0.2em] text-white/45">Brand</div>
                   <div className="mt-2 text-base font-medium text-white">RacePotential</div>
-                  <div className="mt-1 text-sm leading-6 text-white/60">Multi-distance race potential calculator for runners from 100m to marathon.</div>
+                  <div className="mt-1 text-sm leading-6 text-white/60">
+                    Multi-distance race potential calculator for runners from 100m to marathon.
+                  </div>
                 </div>
+
                 <div className="mt-8 flex items-center justify-between gap-4 border-t border-white/10 pt-4 text-sm text-white/40">
                   <div>racepotential.app</div>
                   <div>Predict your next breakthrough</div>
                 </div>
               </div>
-            </div>
-
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-xl shadow-black/10">
-              <div className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-white/45"><Info className="h-4 w-4" /> Why it works</div>
-              <h3 className="mt-2 text-xl font-semibold">Built to feel clear first, detailed second</h3>
-              <ul className="mt-4 space-y-3 text-white/70">
-                <li>• STEP 1 chooses the target event you want predicted.</li>
-                <li>• STEP 2 adds a bit of athlete context.</li>
-                <li>• STEP 3 adds your supporting performances.</li>
-                <li>• STEP 4 gives you a free prediction, short feedback, best-event fit, and equivalent performances.</li>
-                <li>• The $0.99 unlock gives the full AI feedback and a downloadable PDF report.</li>
-              </ul>
             </div>
           </div>
         </section>
