@@ -944,29 +944,43 @@ function GlobalBackground() {
   );
 }
 
-// ─── Floating ambient glows (multiple, scattered) ────────────────────────────
+// ─── Floating ambient glows (scattered — feels “random”, positions fixed per load) ──
+
+const SCATTER_RED_GLOWS = [
+  { w: 420, h: 420, left: "-10%", top: "6%", op: [0.12, 0.22, 0.12], dur: 9, delay: 0, move: { y: [0, -16, 0], x: [0, 8, 0] } },
+  { w: 380, h: 380, right: "-8%", top: "28%", op: [0.07, 0.17, 0.07], dur: 13, delay: 2, move: { y: [0, 20, 0], x: [0, -10, 0] } },
+  { w: 340, h: 340, left: "18%", top: "42%", op: [0.06, 0.14, 0.06], dur: 11, delay: 1, move: { y: [0, 14, 0], x: [0, -12, 0] } },
+  { w: 300, h: 300, right: "22%", top: "48%", op: [0.05, 0.12, 0.05], dur: 15, delay: 4, move: { y: [0, -12, 0], x: [0, 14, 0] } },
+  { w: 360, h: 360, left: "-6%", top: "62%", op: [0.08, 0.16, 0.08], dur: 12, delay: 0.5, move: { y: [0, 18, 0], x: [0, 6, 0] } },
+  { w: 280, h: 280, right: "-4%", top: "68%", op: [0.05, 0.11, 0.05], dur: 16, delay: 6, move: { y: [0, -10, 0], x: [0, -8, 0] } },
+  { w: 400, h: 400, left: "38%", top: "72%", op: [0.06, 0.13, 0.06], dur: 14, delay: 3, move: { y: [0, -20, 0], x: [0, 10, 0] } },
+  { w: 260, h: 260, left: "52%", top: "18%", op: [0.05, 0.11, 0.05], dur: 18, delay: 5, move: { y: [0, 12, 0], x: [0, -14, 0] } },
+  { w: 220, h: 220, right: "38%", bottom: "8%", op: [0.04, 0.1, 0.04], dur: 20, delay: 8, move: { y: [0, -8, 0], x: [0, 12, 0] } },
+  { w: 320, h: 320, left: "8%", bottom: "18%", op: [0.07, 0.15, 0.07], dur: 10, delay: 1.5, move: { y: [0, 16, 0], x: [0, -6, 0] } },
+  { w: 240, h: 240, right: "12%", top: "12%", op: [0.04, 0.1, 0.04], dur: 17, delay: 7, move: { y: [0, 10, 0], x: [0, 8, 0] } },
+  { w: 200, h: 200, left: "72%", top: "55%", op: [0.04, 0.09, 0.04], dur: 19, delay: 9, move: { y: [0, -9, 0], x: [0, -10, 0] } },
+];
 
 function AmbientGlows() {
   return (
     <>
-      <motion.div
-        aria-hidden="true"
-        animate={{ opacity: [0.14, 0.22, 0.14], y: [0, -18, 0] }}
-        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-        className="pointer-events-none fixed left-[-10%] top-[8%] z-0 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.22),transparent_68%)] blur-3xl"
-      />
-      <motion.div
-        aria-hidden="true"
-        animate={{ opacity: [0.08, 0.16, 0.08], y: [0, 22, 0] }}
-        transition={{ duration: 13, repeat: Infinity, ease: "easeInOut", delay: 3 }}
-        className="pointer-events-none fixed right-[-8%] top-[30%] z-0 h-[380px] w-[380px] rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.18),transparent_65%)] blur-3xl"
-      />
-      <motion.div
-        aria-hidden="true"
-        animate={{ opacity: [0.06, 0.13, 0.06], y: [0, -14, 0] }}
-        transition={{ duration: 17, repeat: Infinity, ease: "easeInOut", delay: 7 }}
-        className="pointer-events-none fixed bottom-[10%] left-[25%] z-0 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.15),transparent_60%)] blur-3xl"
-      />
+      {SCATTER_RED_GLOWS.map((g, i) => (
+        <motion.div
+          key={i}
+          aria-hidden="true"
+          animate={{ opacity: g.op, ...g.move }}
+          transition={{ duration: g.dur, repeat: Infinity, ease: "easeInOut", delay: g.delay }}
+          style={{
+            width: g.w,
+            height: g.h,
+            ...(g.left != null && { left: g.left }),
+            ...(g.right != null && { right: g.right }),
+            ...(g.top != null && { top: g.top }),
+            ...(g.bottom != null && { bottom: g.bottom }),
+          }}
+          className="pointer-events-none fixed z-0 rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.2),rgba(239,68,68,0.06)_42%,transparent_70%)] blur-3xl"
+        />
+      ))}
     </>
   );
 }
@@ -1345,159 +1359,192 @@ export default function RacePotentialPreview() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    const colors = {
-      bg: [10, 10, 10],
-      panel: [20, 20, 20],
-      panel2: [28, 28, 28],
-      border: [55, 55, 55],
-      muted: [170, 170, 170],
-      text: [245, 245, 245],
-      red: [239, 68, 68],
-      redSoft: [110, 32, 32],
-      whiteSoft: [215, 215, 215],
+    // Print-first palette: reads well on screen, on paper, and in greyscale
+    const P = {
+      paper: [255, 255, 255],
+      paperTint: [252, 252, 251],
+      text: [23, 23, 23],
+      textMuted: [82, 82, 91],
+      textLight: [113, 113, 122],
+      border: [228, 228, 231],
+      borderStrong: [212, 212, 216],
+      card: [249, 250, 251],
+      accent: [185, 28, 28],
+      accentSoft: [254, 242, 242],
+      accentBorder: [254, 202, 202],
+      rule: [185, 28, 28],
     };
 
-    const marginX = 36;
-    let y = 34;
+    const marginX = 50;
+    const marginTop = 44;
+    const footerH = 46;
+    let y = marginTop;
 
     const safeProfileLabel = profile ? PROFILE_CONFIG[profile].label : "Runner";
+    const generatedOn = new Date().toLocaleDateString("en-GB", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    doc.setProperties({
+      title: `RacePotential — ${result.target.label}`,
+      subject: "Premium performance report",
+      author: "RacePotential",
+      keywords: "running, athletics, performance",
+    });
 
     const addPage = () => {
       doc.addPage();
-      y = 34;
+      y = marginTop;
       drawPageBackground();
-      drawFooter();
+      drawFooterRule();
     };
 
     const ensureSpace = (needed) => {
-      if (y + needed > pageHeight - 58) addPage();
+      if (y + needed > pageHeight - footerH) addPage();
     };
 
     const drawPageBackground = () => {
-      doc.setFillColor(...colors.bg);
+      doc.setFillColor(...P.paper);
       doc.rect(0, 0, pageWidth, pageHeight, "F");
+      doc.setFillColor(...P.rule);
+      doc.rect(0, 0, pageWidth, 2.5, "F");
     };
 
-    const drawFooter = () => {
-      doc.setDrawColor(...colors.border);
-      doc.line(marginX, pageHeight - 28, pageWidth - marginX, pageHeight - 28);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(...colors.red);
-      doc.text("RacePotential", marginX, pageHeight - 12);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...colors.muted);
-      doc.text("Predict your next breakthrough", pageWidth - marginX, pageHeight - 12, { align: "right" });
+    /** Thin rule only — page numbers added after all pages exist */
+    const drawFooterRule = () => {
+      const fy = pageHeight - 36;
+      doc.setDrawColor(...P.borderStrong);
+      doc.setLineWidth(0.35);
+      doc.line(marginX, fy, pageWidth - marginX, fy);
     };
 
-    const drawHeader = () => {
-      doc.setFillColor(...colors.panel);
-      doc.roundedRect(marginX, y, pageWidth - marginX * 2, 98, 18, 18, "F");
+    const drawCoverBlock = () => {
+      const blockH = 118;
+      ensureSpace(blockH + 24);
+      doc.setFillColor(...P.paperTint);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, blockH, 10, 10, "F");
+      doc.setDrawColor(...P.border);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, blockH, 10, 10, "S");
 
-      doc.setFillColor(...colors.redSoft);
-      doc.roundedRect(marginX + 16, y + 16, 120, 24, 12, 12, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(...colors.text);
-      doc.text("PREMIUM REPORT", marginX + 28, y + 32);
+      doc.setFillColor(...P.accent);
+      doc.rect(marginX, y, 3.5, blockH, "F");
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(24);
-      doc.setTextColor(...colors.text);
-      doc.text("RacePotential Report", marginX + 16, y + 62);
+      doc.setFontSize(9);
+      doc.setTextColor(...P.accent);
+      doc.text("PREMIUM PERFORMANCE REPORT", marginX + 18, y + 22);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(...P.text);
+      doc.text("Your RacePotential analysis", marginX + 18, y + 48);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
-      doc.setTextColor(...colors.whiteSoft);
-      doc.text(`${safeProfileLabel} profile · ${result.target.label} target`, marginX + 16, y + 82);
+      doc.setTextColor(...P.textMuted);
+      doc.text(`${safeProfileLabel} · Target: ${result.target.label}`, marginX + 18, y + 68);
 
-      y += 116;
+      doc.setFontSize(9);
+      doc.setTextColor(...P.textLight);
+      doc.text(`Generated ${generatedOn} · racepotential.app`, marginX + 18, y + 90);
+
+      y += blockH + 20;
     };
 
     const drawMetricCards = () => {
-      const gap = 10;
+      const gap = 12;
       const totalWidth = pageWidth - marginX * 2;
       const cardWidth = (totalWidth - gap * 2) / 3;
-      const cardHeight = 78;
+      const cardHeight = 86;
 
       const cards = [
         { label: "Current level", value: formatSeconds(result.currentTime) },
         { label: "True potential", value: formatSeconds(result.potentialTime) },
-        { label: "Confidence", value: result.confidence },
+        { label: "Confidence band", value: result.confidence },
       ];
 
-      ensureSpace(cardHeight + 16);
+      ensureSpace(cardHeight + 20);
 
       cards.forEach((card, index) => {
         const x = marginX + index * (cardWidth + gap);
-        doc.setFillColor(...colors.panel2);
-        doc.roundedRect(x, y, cardWidth, cardHeight, 14, 14, "F");
-        doc.setDrawColor(...colors.border);
-        doc.roundedRect(x, y, cardWidth, cardHeight, 14, 14, "S");
+        doc.setFillColor(...P.card);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 8, 8, "F");
+        doc.setDrawColor(...P.border);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 8, 8, "S");
 
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(...colors.muted);
-        doc.text(card.label.toUpperCase(), x + 12, y + 20);
+        doc.setFontSize(8.5);
+        doc.setTextColor(...P.textLight);
+        doc.text(String(card.label).toUpperCase(), x + 14, y + 22);
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(20);
-        doc.setTextColor(...colors.text);
-        doc.text(String(card.value), x + 12, y + 48);
+        doc.setFontSize(16);
+        doc.setTextColor(...P.text);
+        doc.text(String(card.value), x + 14, y + 48, { maxWidth: cardWidth - 28, lineHeightFactor: 1.25 });
       });
 
-      y += cardHeight + 16;
+      y += cardHeight + 18;
     };
 
-    const drawSectionTitle = (title) => {
-      ensureSpace(26);
+    const drawSectionTitle = (rawTitle) => {
+      const title = String(rawTitle).replace(/\s*:\s*$/, "");
+      ensureSpace(30);
+      doc.setDrawColor(...P.accent);
+      doc.setLineWidth(2.25);
+      doc.line(marginX, y + 4, marginX, y + 18);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(...colors.red);
-      doc.text(String(title).toUpperCase(), marginX, y);
-      y += 18;
+      doc.setFontSize(11.5);
+      doc.setTextColor(...P.text);
+      doc.text(title, marginX + 10, y + 15);
+      y += 26;
     };
 
     const drawParagraphBox = (text, options = {}) => {
       const {
-        fill = colors.panel,
-        border = colors.border,
-        textColor = colors.whiteSoft,
-        fontSize = 11,
-        lineHeight = 16,
+        fill = P.card,
+        border = P.border,
+        textColor = P.textMuted,
+        fontSize = 10.5,
+        lineHeight = 15,
         padding = 14,
+        radius = 8,
       } = options;
 
       const maxWidth = pageWidth - marginX * 2 - padding * 2;
       const lines = doc.splitTextToSize(String(text), maxWidth);
-      const boxHeight = lines.length * lineHeight + padding * 2 - 4;
+      const boxHeight = lines.length * lineHeight + padding * 2 - 2;
 
-      ensureSpace(boxHeight + 10);
+      ensureSpace(boxHeight + 12);
 
       doc.setFillColor(...fill);
-      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, 14, 14, "F");
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, radius, radius, "F");
       doc.setDrawColor(...border);
-      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, 14, 14, "S");
+      doc.setLineWidth(0.45);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, radius, radius, "S");
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontSize);
       doc.setTextColor(...textColor);
-      doc.text(lines, marginX + padding, y + padding + 8);
+      doc.text(lines, marginX + padding, y + padding + 9);
 
-      y += boxHeight + 10;
+      y += boxHeight + 12;
     };
 
     const drawBulletListBox = (items) => {
       const listText = items.map((item) => `• ${item}`).join("\n");
-      drawParagraphBox(listText);
+      drawParagraphBox(listText, { textColor: P.text });
     };
 
     const drawTwoColumnMiniCards = (items) => {
-      const gap = 10;
+      const gap = 12;
       const totalWidth = pageWidth - marginX * 2;
       const cardWidth = (totalWidth - gap) / 2;
-      const lineHeight = 15;
-      const padding = 12;
+      const lineHeight = 14.5;
+      const padding = 14;
 
       const rows = [];
       for (let i = 0; i < items.length; i += 2) {
@@ -1510,73 +1557,95 @@ export default function RacePotentialPreview() {
           return lines.length * lineHeight + padding * 2;
         });
 
-        const rowHeight = Math.max(...heights, 48);
-        ensureSpace(rowHeight + 10);
+        const rowHeight = Math.max(...heights, 46);
+        ensureSpace(rowHeight + 12);
 
         row.forEach((text, idx) => {
           const x = marginX + idx * (cardWidth + gap);
           const lines = doc.splitTextToSize(String(text), cardWidth - padding * 2);
 
-          doc.setFillColor(...colors.panel2);
-          doc.roundedRect(x, y, cardWidth, rowHeight, 12, 12, "F");
-          doc.setDrawColor(...colors.border);
-          doc.roundedRect(x, y, cardWidth, rowHeight, 12, 12, "S");
+          doc.setFillColor(...P.card);
+          doc.roundedRect(x, y, cardWidth, rowHeight, 8, 8, "F");
+          doc.setDrawColor(...P.border);
+          doc.setLineWidth(0.4);
+          doc.roundedRect(x, y, cardWidth, rowHeight, 8, 8, "S");
 
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(10.5);
-          doc.setTextColor(...colors.whiteSoft);
-          doc.text(lines, x + padding, y + padding + 6);
+          doc.setFontSize(10);
+          doc.setTextColor(...P.text);
+          doc.text(lines, x + padding, y + padding + 8);
         });
 
-        y += rowHeight + 10;
+        y += rowHeight + 12;
       });
+    };
+
+    /** Flowing body text — minimal ink, good for long “Detailed report” sections */
+    const drawFlowParagraph = (line) => {
+      const maxW = pageWidth - marginX * 2;
+      const lines = doc.splitTextToSize(String(line), maxW);
+      const lh = 14;
+      const h = lines.length * lh + 8;
+      ensureSpace(h);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(...P.textMuted);
+      doc.text(lines, marginX, y + 11);
+      y += h;
     };
 
     const advice = buildTrainingAdvice(result, profile, form);
 
     drawPageBackground();
-    drawFooter();
-    drawHeader();
+    drawFooterRule();
+    drawCoverBlock();
     drawMetricCards();
 
-    drawSectionTitle("Core result");
+    drawSectionTitle("Summary");
     drawParagraphBox(
-      `RacePotential estimates your realistic current level around ${formatSeconds(result.currentTime)} and your stronger upside around ${formatSeconds(result.potentialTime)}. That creates an estimated headroom of ${result.untapped.toFixed(2)} seconds for ${result.target.label}.`
+      `RacePotential estimates your realistic current level around ${formatSeconds(result.currentTime)} and your stronger upside around ${formatSeconds(result.potentialTime)}. Estimated headroom: ${result.untapped.toFixed(2)} seconds for ${result.target.label}. Uncertainty (±${result.uncertainty}s) reflects spread between model methods — not race-day guarantees.`,
+      { textColor: P.text, fill: P.paperTint, border: P.border }
     );
 
     drawSectionTitle("Athlete profile");
     drawTwoColumnMiniCards([
       `Athlete type\n${result.athleteType}`,
-      `Score profile\nSpeed ${result.speedScore}/100 · Endurance ${result.enduranceScore}/100 · Speed Endurance ${result.speedEnduranceScore}/100`,
+      `Score profile\nSpeed ${result.speedScore}/100 · Endurance ${result.enduranceScore}/100 · Speed endurance ${result.speedEnduranceScore}/100`,
     ]);
-    drawParagraphBox(result.athleteTypeSummary);
+    drawParagraphBox(result.athleteTypeSummary, { textColor: P.text });
 
-    drawSectionTitle("What you seem good at");
+    drawSectionTitle("Strengths");
     drawBulletListBox(result.strengths);
 
-    drawSectionTitle("What you should train more");
+    drawSectionTitle("Training priorities");
     drawBulletListBox(result.needs);
 
     drawSectionTitle("Equivalent performances");
     if (equivalents.length) {
       drawTwoColumnMiniCards(equivalents.map((eq) => `${eq.label}\n${formatSeconds(eq.time)} · ${eq.confidence} confidence`));
     } else {
-      drawParagraphBox("Not enough data yet to build strong equivalent performances.");
+      drawParagraphBox("Not enough data to list strong equivalents for nearby events.");
     }
 
-    drawSectionTitle("Specific session to improve your limiter");
+    drawSectionTitle("Key session (your limiter)");
     drawParagraphBox(
-      `${advice.primarySession.title || ""}\n\nGoal: ${advice.primarySession.goal || ""}\n\nPrescription: ${advice.primarySession.prescription || ""}\n\nExecution note: ${advice.primarySession.coaching || ""}`,
-      { fill: [34, 18, 18], border: colors.redSoft, textColor: colors.text }
+      `${advice.primarySession.title || ""}\n\nGoal: ${advice.primarySession.goal || ""}\n\nPrescription: ${advice.primarySession.prescription || ""}\n\nExecution: ${advice.primarySession.coaching || ""}`,
+      {
+        fill: P.accentSoft,
+        border: P.accentBorder,
+        textColor: P.text,
+        fontSize: 10.5,
+        lineHeight: 15,
+      }
     );
 
-    drawSectionTitle("Suggested training structure");
+    drawSectionTitle("Weekly structure (suggested)");
     drawTwoColumnMiniCards(advice.weeklyStructure);
 
-    drawSectionTitle("Detailed report");
+    drawSectionTitle("Full written report");
     buildPdfReportLines(result, equivalents, profile, form).forEach((line) => {
       if (String(line).trim() === "") {
-        y += 4;
+        y += 5;
       } else if (
         line === "What the model thinks you already do well:" ||
         line === "What is holding you back most right now:" ||
@@ -1588,9 +1657,27 @@ export default function RacePotentialPreview() {
       ) {
         drawSectionTitle(line);
       } else {
-        drawParagraphBox(line, { fill: colors.panel2, border: colors.border, textColor: colors.whiteSoft, fontSize: 10.5, lineHeight: 15, padding: 12 });
+        drawFlowParagraph(line);
       }
     });
+
+    ensureSpace(36);
+    drawParagraphBox(
+      "Disclaimer: Model-based estimates only — not medical advice, not a substitute for a coach, and not a guarantee of results. Use judgment and professional guidance for training and health decisions.",
+      { fill: P.card, border: P.border, textColor: P.textLight, fontSize: 9, lineHeight: 13, padding: 12 }
+    );
+
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p += 1) {
+      doc.setPage(p);
+      const fy = pageHeight - 18;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...P.textLight);
+      doc.text("RacePotential", marginX, fy);
+      doc.text(`Page ${p} of ${totalPages}`, pageWidth / 2, fy, { align: "center" });
+      doc.text("racepotential.app", pageWidth - marginX, fy, { align: "right" });
+    }
 
     const safeProfile = safeProfileLabel.split(" ").join("-").toLowerCase();
     const safeTarget = String(result.target.label).split(" ").join("-").toLowerCase();
