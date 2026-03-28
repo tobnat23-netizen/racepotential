@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useInView, useScroll, useSpring, useTransform } from "framer-motion";
+import React, { useMemo, useRef, useState } from "react";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import {
@@ -13,7 +13,6 @@ import {
   Flame,
   Gauge,
   Link2,
-  LoaderCircle,
   Lock,
   MapPin,
   Medal,
@@ -252,9 +251,9 @@ function buildAnchorPredictions(performances, profile) {
   });
 
   if (!anchors[200] && anchors[100]) anchors[200] = predictNeighborByKsA(performances, 100, 200, 0.5);
-  if (!anchors[400] && anchors[200]) anchors[400] = predictNeighborByKsA({ ...performances, 200: { id: "200", meters: 200, time: anchors[200] } }, 200, 400, 0.5);
-  if (!anchors[800] && anchors[400]) anchors[800] = predictNeighborByKsA({ ...performances, 400: { id: "400", meters: 400, time: anchors[400] } }, 400, 800, 0.5);
-  if (!anchors[1500] && anchors[800]) anchors[1500] = predictNeighborByKsA({ ...performances, 800: { id: "800", meters: 800, time: anchors[800] } }, 800, 1500, 0.5);
+  if (!anchors[400] && anchors[200]) anchors[400] = predictNeighborByKsA({ ...performances, "200": { id: "200", meters: 200, time: anchors[200] } }, 200, 400, 0.5);
+  if (!anchors[800] && anchors[400]) anchors[800] = predictNeighborByKsA({ ...performances, "400": { id: "400", meters: 400, time: anchors[400] } }, 400, 800, 0.5);
+  if (!anchors[1500] && anchors[800]) anchors[1500] = predictNeighborByKsA({ ...performances, "800": { id: "800", meters: 800, time: anchors[800] } }, 800, 1500, 0.5);
 
   if (!anchors[300] && anchors[200] && anchors[400]) anchors[300] = localPowerInterpolate(300, { meters: 200, time: anchors[200] }, { meters: 400, time: anchors[400] });
   if (!anchors[600] && anchors[400] && anchors[800]) anchors[600] = localPowerInterpolate(600, { meters: 400, time: anchors[400] }, { meters: 800, time: anchors[800] });
@@ -477,14 +476,17 @@ function buildShortFeedback({
           : "At your age, the most useful path is usually to protect your best quality while improving efficiency around it."
       : "The model can still give useful direction even without using age as a major driver.";
 
+  const strengthText = strengths && strengths[0] ? strengths[0] : "your current profile";
+  const needText = needs && needs[0] ? needs[0] : "continued development";
+
   return {
     headline: `${athleteType} for ${target.label}`,
     summary: athleteTypeSummary,
     body: [
       eventLens,
       scoreLine,
-      `Your clearest strength right now is that ${strengths[0]?.charAt(0).toLowerCase() + strengths[0]?.slice(1)}`,
-      `The main area to improve next is that ${needs[0]?.charAt(0).toLowerCase() + needs[0]?.slice(1)}`,
+      `Your clearest strength right now is that ${strengthText.charAt(0).toLowerCase() + strengthText.slice(1)}`,
+      `The main area to improve next is that ${needText.charAt(0).toLowerCase() + needText.slice(1)}`,
       gapLine,
       trainingLine,
       ageLine,
@@ -602,6 +604,7 @@ function buildPrediction(targetId, profile, form) {
   const athleteTypeSummary = athleteProfile.summary;
   const untapped = Math.max(current.time - potentialTime, 0);
   const { strengths, needs } = buildStrengthsAndNeeds({ profile, athleteType, untapped });
+  const previewLine = `${strengths[0]} ${needs[0]}`;
   const shortFeedback = buildShortFeedback({
     profile,
     target,
@@ -616,6 +619,8 @@ function buildPrediction(targetId, profile, form) {
     training: form.training,
     age: form.age,
   });
+
+  const aiFeedback = `Your selected target is ${target.label}. Based on the performances you entered, the model estimates a realistic current level around ${formatSeconds(current.time)} and a stronger but still bounded upside around ${formatSeconds(potentialTime)}. That creates an estimated headroom of ${untapped.toFixed(2)} seconds.\n\nYour strongest current qualities appear to be these: ${strengths.join(" ")}\n\nThe most useful areas to train next are these: ${needs.join(" ")}\n\nModel choice matters here. For this event, RacePotential leaned most heavily on ${current.methods.slice(0, 3).join(", ")}. That means the result is not just one formula stretched across all distances. It is a blended estimate built from sprint-conversion logic, local interpolation, and endurance-specific models when the target event demands it.\n\nIf I were coaching the next block for this target, I would focus on one session that protects your current strength, one session that attacks your biggest limiter, and one session that improves race execution for the exact distance you selected.`;
 
   return {
     target,
@@ -633,7 +638,9 @@ function buildPrediction(targetId, profile, form) {
     untapped,
     strengths,
     needs,
+    previewLine,
     shortFeedback,
+    aiFeedback,
     methods: current.methods,
   };
 }
@@ -747,93 +754,32 @@ function getProcessState({ targetId, form, visibleInputs, result }) {
   };
 }
 
-function CalculatingBridge({ show, resultReady }) {
-  if (!show) return null;
-
+function RacePotentialLogo({ size = 42 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false, amount: 0.35 }}
-      transition={{ duration: 0.55, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur"
-    >
-      <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(to_right,white_1px,transparent_1px),linear-gradient(to_bottom,white_1px,transparent_1px)] [background-size:36px_36px]" />
-      <div className="pointer-events-none absolute -left-12 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-red-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-0 h-36 w-36 rounded-full bg-red-500/10 blur-3xl" />
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <svg width={size} height={size} viewBox="0 0 100 100" fill="none" aria-hidden="true">
+        <circle cx="50" cy="50" r="46" stroke="#ef4444" strokeWidth="6" />
+        <path d="M25 60 L45 40 L60 55 L78 35" stroke="#ef4444" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="78" cy="35" r="4" fill="#ef4444" />
+      </svg>
+      <div style={{ fontWeight: 700, fontSize: 20, letterSpacing: 1 }}>RacePotential</div>
+    </div>
+  );
+}
 
-      <div className="relative rounded-[28px] border border-red-400/20 bg-gradient-to-br from-red-500/10 to-white/[0.03] p-5 shadow-lg shadow-red-500/5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-[0.22em] text-white/45">Transition</div>
-            <div className="mt-2 text-2xl font-semibold text-white">
-              {resultReady ? "Your result is ready" : "Calculating your result"}
-            </div>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">
-              {resultReady
-                ? "The model has enough information to build your predicted performance below."
-                : "Building your prediction from your entered performances, athlete profile, and event-specific model weighting."}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <LoaderCircle className="h-5 w-5 animate-spin text-red-300" />
-              <div className="text-sm font-medium text-white">
-                {resultReady ? "Prediction built" : "Analyzing inputs"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {[
-            "Checking event relationships",
-            "Blending prediction models",
-            resultReady ? "Preparing result display" : "Estimating confidence",
-          ].map((item, index) => (
-            <div
-              key={item}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-            >
-              <div className="flex items-center gap-3">
-                <motion.div
-                  animate={{ opacity: [0.35, 1, 0.35] }}
-                  transition={{ repeat: Infinity, duration: 1.4, delay: index * 0.18 }}
-                  className="h-2.5 w-2.5 rounded-full bg-red-400"
-                />
-                <div className="text-sm text-white/80">{item}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-5">
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <motion.div
-              initial={{ width: "8%" }}
-              animate={{ width: resultReady ? ["72%", "88%", "100%"] : ["18%", "64%", "82%", "58%", "76%"] }}
-              transition={{
-                duration: resultReady ? 1.2 : 2.8,
-                repeat: resultReady ? 0 : Infinity,
-                repeatType: "mirror",
-                ease: "easeInOut",
-              }}
-              className="h-full rounded-full bg-gradient-to-r from-red-400 via-red-300 to-white/80"
-            />
-          </div>
-          <div className="mt-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/40">
-            <span>RacePotential engine</span>
-            <span>{resultReady ? "Completed" : "In progress"}</span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+function StepSectionHeader({ step, title, description, children, className = "" }) {
+  return (
+    <div className={`rounded-[28px] border border-red-400/20 bg-gradient-to-br from-red-500/10 to-white/[0.03] p-5 shadow-lg shadow-red-500/5 ${className}`}>
+      <div className="text-xs uppercase tracking-[0.22em] text-white/45">{step}</div>
+      <div className="mt-2 text-2xl font-semibold text-white">{title}</div>
+      {description ? <p className="mt-2 text-sm leading-6 text-white/65">{description}</p> : null}
+      {children ? <div className="mt-4">{children}</div> : null}
+    </div>
   );
 }
 
 function buildTrainingAdvice(result, profile, form) {
-  if (!result) return [];
+  if (!result) return { limiter: "", primarySession: {}, secondarySessions: [], weeklyStructure: [], consistencyNote: "", strengthLeverage: "" };
 
   const sessionsPerWeek = Number(form?.training || 0);
   const needsText = (result.needs || []).join(" ").toLowerCase();
@@ -1018,10 +964,10 @@ function buildFullPersonalizedReport(result, equivalents, profile, form) {
     "The clearest training conclusion:",
     advice.strengthLeverage,
     "",
-    advice.primarySession.title,
-    `Goal: ${advice.primarySession.goal}`,
-    `Prescription: ${advice.primarySession.prescription}`,
-    `Execution note: ${advice.primarySession.coaching}`,
+    advice.primarySession.title || "",
+    `Goal: ${advice.primarySession.goal || ""}`,
+    `Prescription: ${advice.primarySession.prescription || ""}`,
+    `Execution note: ${advice.primarySession.coaching || ""}`,
     "",
     "Other session types that would support improvement:",
     secondaryText,
@@ -1035,7 +981,8 @@ function buildFullPersonalizedReport(result, equivalents, profile, form) {
 }
 
 function buildPdfReportLines(result, equivalents, profile, form) {
-  return buildFullPersonalizedReport(result, equivalents, profile, form).split("\n");
+  const fullReport = buildFullPersonalizedReport(result, equivalents, profile, form);
+  return fullReport.split("\n");
 }
 
 function PremiumReportSection({
@@ -1057,7 +1004,8 @@ function PremiumReportSection({
   if (!result) return null;
 
   const advice = buildTrainingAdvice(result, profile, form);
-  const reportParagraphs = buildFullPersonalizedReport(result, equivalents, profile, form).split("\n\n").filter(Boolean);
+  const fullReport = buildFullPersonalizedReport(result, equivalents, profile, form);
+  const reportParagraphs = fullReport.split("\n\n").filter(Boolean);
 
   return (
     <div className="mt-6 rounded-[28px] border border-red-400/20 bg-gradient-to-br from-red-500/10 to-white/[0.03] p-6 shadow-lg">
@@ -1111,11 +1059,19 @@ function PremiumReportSection({
               />
               <span>
                 I agree to the{" "}
-                <button type="button" onClick={() => setLegalOpen("terms")} className="text-red-300 underline">
+                <button
+                  type="button"
+                  onClick={() => setLegalOpen("terms")}
+                  className="text-red-300 underline"
+                >
                   Terms of Service
                 </button>{" "}
                 and I have read the{" "}
-                <button type="button" onClick={() => setLegalOpen("privacy")} className="text-red-300 underline">
+                <button
+                  type="button"
+                  onClick={() => setLegalOpen("privacy")}
+                  className="text-red-300 underline"
+                >
                   Privacy Policy
                 </button>.
               </span>
@@ -1130,8 +1086,12 @@ function PremiumReportSection({
               />
               <span>
                 I request immediate access to the premium digital report and acknowledge that, where applicable, I may lose my withdrawal right once digital delivery begins. Read{" "}
-                <button type="button" onClick={() => setLegalOpen("refund")} className="text-red-300 underline">
-                  Digital Content Notice
+                <button
+                  type="button"
+                  onClick={() => setLegalOpen("refund")}
+                  className="text-red-300 underline"
+                >
+                  Refunds & Digital Content Notice
                 </button>.
               </span>
             </label>
@@ -1185,8 +1145,12 @@ function PremiumReportSection({
             <div className="mt-3 rounded-xl border border-red-400/15 bg-red-500/10 p-4">
               <div className="text-lg font-semibold text-white">{advice.primarySession.title}</div>
               <div className="mt-2 text-sm leading-7 text-white/80">{advice.primarySession.goal}</div>
-              <div className="mt-3 text-sm leading-7 text-white/90"><span className="font-semibold text-white">Prescription:</span> {advice.primarySession.prescription}</div>
-              <div className="mt-2 text-sm leading-7 text-white/75"><span className="font-semibold text-white">Execution note:</span> {advice.primarySession.coaching}</div>
+              <div className="mt-3 text-sm leading-7 text-white/90">
+                <span className="font-semibold text-white">Prescription:</span> {advice.primarySession.prescription}
+              </div>
+              <div className="mt-2 text-sm leading-7 text-white/75">
+                <span className="font-semibold text-white">Execution note:</span> {advice.primarySession.coaching}
+              </div>
             </div>
           </div>
 
@@ -1259,18 +1223,18 @@ function runSelfChecks() {
     {
       name: "prediction exists",
       pass: (() => {
-        const res = buildPrediction("400", "sprinter", { 100: "11.5", 200: "22.8", 800: "1:58.4", age: "20", training: "5" });
+        const res = buildPrediction("400", "sprinter", { "100": "11.5", "200": "22.8", "800": "1:58.4", age: "20", training: "5" });
         return !!res && typeof res.currentTime === "number";
       })(),
     },
     {
       name: "equivalents builder returns array",
-      pass: Array.isArray(buildEquivalentPerformances("400", "sprinter", { 100: "11.5", 200: "22.8", 800: "1:58.4", age: "20", training: "5" })),
+      pass: Array.isArray(buildEquivalentPerformances("400", "sprinter", { "100": "11.5", "200": "22.8", "800": "1:58.4", age: "20", training: "5" })),
     },
     {
       name: "short-distance equivalents use event-specific predictions",
       pass: (() => {
-        const rows = buildEquivalentPerformances("800", "middle", { 400: "52.0", 1500: "4:05.0", 3000: "8:55.0", age: "22", training: "6" });
+        const rows = buildEquivalentPerformances("800", "middle", { "400": "52.0", "1500": "4:05.0", "3000": "8:55.0", age: "22", training: "6" });
         const four = rows.find((r) => r.id === "400");
         return !!four && four.time < 60;
       })(),
@@ -1278,14 +1242,14 @@ function runSelfChecks() {
     {
       name: "short-distance equivalent tuning lowers 600m for middle profile",
       pass: (() => {
-        const raw = buildPrediction("600", "middle", { 400: "52.0", 800: "1:56.0", 1500: "4:05.0", age: "22", training: "6" });
-        const tuned = buildEquivalentPerformances("800", "middle", { 400: "52.0", 800: "1:56.0", 1500: "4:05.0", age: "22", training: "6" }).find((r) => r.id === "600");
+        const raw = buildPrediction("600", "middle", { "400": "52.0", "800": "1:56.0", "1500": "4:05.0", age: "22", training: "6" });
+        const tuned = buildEquivalentPerformances("800", "middle", { "400": "52.0", "800": "1:56.0", "1500": "4:05.0", age: "22", training: "6" }).find((r) => r.id === "600");
         return !!raw && !!tuned && tuned.time < raw.currentTime;
       })(),
     },
     {
       name: "best event ranking returns array",
-      pass: Array.isArray(buildBestEventRanking("middle", { 400: "51.0", 800: "1:55.0", 1500: "4:02.0", age: "20", training: "5" })),
+      pass: Array.isArray(buildBestEventRanking("middle", { "400": "51.0", "800": "1:55.0", "1500": "4:02.0", age: "20", training: "5" })),
     },
   ];
 
@@ -1316,29 +1280,26 @@ export default function RacePotentialPreview() {
   const [copiedShareText, setCopiedShareText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [downloadedCard, setDownloadedCard] = useState(false);
-  const [showCalculationBridge, setShowCalculationBridge] = useState(false);
-
   const shareCardRef = useRef(null);
-  const step4AnchorRef = useRef(null);
 
   const [form, setForm] = useState({
     sex: "male",
     age: "",
     training: "",
-    100: "",
-    200: "",
-    300: "",
-    400: "",
-    600: "",
-    800: "",
-    1000: "",
-    1500: "",
+    "100": "",
+    "200": "",
+    "300": "",
+    "400": "",
+    "600": "",
+    "800": "",
+    "1000": "",
+    "1500": "",
     mile: "",
-    2000: "",
-    3000: "",
+    "2000": "",
+    "3000": "",
     "2mile": "",
-    5000: "",
-    10000: "",
+    "5000": "",
+    "10000": "",
     half: "",
     marathon: "",
   });
@@ -1364,40 +1325,34 @@ export default function RacePotentialPreview() {
   }, [profile, form]);
 
   const processState = getProcessState({ targetId, form, visibleInputs, result });
-  const hasAnyPerformanceInput = processState.filledPerformanceCount > 0;
-  const step4InView = useInView(step4AnchorRef, { amount: 0.2 });
-
-  useEffect(() => {
-    if (!hasAnyPerformanceInput) {
-      setShowCalculationBridge(false);
-      return;
-    }
-    setShowCalculationBridge(!step4InView);
-  }, [hasAnyPerformanceInput, step4InView]);
 
   const processSteps = [
     {
       key: "step1",
       label: "STEP 1",
       title: "Choose target event",
+      text: "Pick the distance you want predicted",
       meta: getDistanceById(targetId)?.label || "Not selected",
     },
     {
       key: "step2",
       label: "STEP 2",
       title: "Add basic details",
+      text: "Add a few athlete details for context",
       meta: String(form.age || "").trim() && String(form.training || "").trim() ? "Details added" : "Age + training still missing",
     },
     {
       key: "step3",
       label: "STEP 3",
       title: "Add race times",
+      text: "Enter other performances you already have",
       meta: processState.filledPerformanceCount > 0 ? `${processState.filledPerformanceCount} time${processState.filledPerformanceCount === 1 ? "" : "s"} added` : "No performances added yet",
     },
     {
       key: "step4",
       label: "STEP 4",
       title: "See your result",
+      text: "Get a realistic prediction and feedback",
       meta: result ? `${result.target.label} ready` : "Waiting for enough input",
     },
   ];
@@ -1418,14 +1373,16 @@ export default function RacePotentialPreview() {
       })
     : [];
 
-  const extraDistanceOptions = profile ? DISTANCES.filter((d) => !currentProfileConfig.inputs.includes(d.id) && d.id !== targetId) : [];
+  const extraDistanceOptions = profile
+    ? DISTANCES.filter((d) => !currentProfileConfig.inputs.includes(d.id) && d.id !== targetId)
+    : [];
 
   const toggleExtraDistance = (id) => {
     setSelectedExtraDistanceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const siteName = "RacePotential";
-  const siteUrl = "https://racepotential.app";
+  const siteUrl = "[racepotential.app](https://racepotential.app)";
   const supportEmail = "support@racepotential.app";
   const businessName = "Your Company Name";
   const businessCountry = "Spain";
@@ -1464,23 +1421,15 @@ export default function RacePotentialPreview() {
     try {
       const canvas = await html2canvas(shareCardRef.current, {
         backgroundColor: "#0a0a0a",
-        scale: 3,
+        scale: 2,
         useCORS: true,
-        logging: false,
-        allowTaint: true,
       });
 
-      const image = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      const safeTarget = result?.target?.label
-        ? String(result.target.label).replace(/\s+/g, "-").toLowerCase()
-        : "result";
-
-      link.href = image;
+      const safeTarget = result?.target?.label ? String(result.target.label).replace(/\s+/g, "-").toLowerCase() : "result";
       link.download = `racepotential-share-card-${safeTarget}.png`;
-      document.body.appendChild(link);
+      link.href = canvas.toDataURL("image/png");
       link.click();
-      document.body.removeChild(link);
 
       setDownloadedCard(true);
       setTimeout(() => setDownloadedCard(false), 1800);
@@ -1651,7 +1600,9 @@ export default function RacePotentialPreview() {
       const padding = 12;
 
       const rows = [];
-      for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
+      for (let i = 0; i < items.length; i += 2) {
+        rows.push(items.slice(i, i + 2));
+      }
 
       rows.forEach((row) => {
         const heights = row.map((text) => {
@@ -1715,7 +1666,7 @@ export default function RacePotentialPreview() {
 
     drawSectionTitle("Specific session to improve your limiter");
     drawParagraphBox(
-      `${advice.primarySession.title}\n\nGoal: ${advice.primarySession.goal}\n\nPrescription: ${advice.primarySession.prescription}\n\nExecution note: ${advice.primarySession.coaching}`,
+      `${advice.primarySession.title || ""}\n\nGoal: ${advice.primarySession.goal || ""}\n\nPrescription: ${advice.primarySession.prescription || ""}\n\nExecution note: ${advice.primarySession.coaching || ""}`,
       { fill: [34, 18, 18], border: colors.redSoft, textColor: colors.text }
     );
 
@@ -1737,14 +1688,7 @@ export default function RacePotentialPreview() {
       ) {
         drawSectionTitle(line);
       } else {
-        drawParagraphBox(line, {
-          fill: colors.panel2,
-          border: colors.border,
-          textColor: colors.whiteSoft,
-          fontSize: 10.5,
-          lineHeight: 15,
-          padding: 12,
-        });
+        drawParagraphBox(line, { fill: colors.panel2, border: colors.border, textColor: colors.whiteSoft, fontSize: 10.5, lineHeight: 15, padding: 12 });
       }
     });
 
@@ -1790,7 +1734,7 @@ We may update these terms from time to time. Continued use of the service after 
       `.trim(),
     },
     refund: {
-      title: "Digital Content Notice",
+      title: "Refunds & Digital Content Notice",
       body: `
 Premium reports are sold as digital content / digital service access.
 
@@ -1798,7 +1742,7 @@ For EU consumers, online purchases can normally include a 14-day withdrawal peri
 
 By unlocking the premium report, you agree to immediate delivery of digital content.
 
-For support regarding payment or delivery issues, contact: ${supportEmail}
+Refund requests can still be reviewed in cases such as duplicate payment, technical failure, or non-delivery. Contact: ${supportEmail}
       `.trim(),
     },
     legal: {
@@ -1822,11 +1766,6 @@ This website offers an athletic performance prediction tool and optional paid di
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-neutral-950 text-white">
-      <div className="pointer-events-none absolute inset-0 z-0 opacity-[0.06] [background-image:linear-gradient(to_right,white_1px,transparent_1px),linear-gradient(to_bottom,white_1px,transparent_1px)] [background-size:42px_42px]" />
-      <div className="pointer-events-none absolute left-[-12%] top-[18%] z-0 h-[34rem] w-[34rem] rounded-full bg-red-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute right-[-10%] top-[42%] z-0 h-[30rem] w-[30rem] rounded-full bg-red-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute left-[18%] bottom-[8%] z-0 h-[26rem] w-[26rem] rounded-full bg-red-500/10 blur-3xl" />
-
       <motion.div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[55vh]" style={{ y: glowY, opacity: glowOpacity }}>
         <div className="mx-auto h-full max-w-7xl px-6 lg:px-10">
           <div className="h-full w-full rounded-full bg-[radial-gradient(circle_at_center,rgba(239,68,68,0.18),rgba(239,68,68,0.08)_24%,rgba(239,68,68,0.02)_45%,transparent_68%)] blur-3xl" />
@@ -1870,6 +1809,7 @@ This website offers an athletic performance prediction tool and optional paid di
         )}
 
         <section className="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(239,68,68,0.20),transparent_35%),radial-gradient(circle_at_85%_20%,rgba(255,255,255,0.08),transparent_18%)]">
+          <div className="absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,white_1px,transparent_1px),linear-gradient(to_bottom,white_1px,transparent_1px)] [background-size:42px_42px]" />
           <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-20">
             <div>
               <div className="mb-5"><RacePotentialLogo size={48} /></div>
@@ -1990,297 +1930,280 @@ This website offers an athletic performance prediction tool and optional paid di
 
         <section className="mx-auto max-w-5xl px-6 py-12 lg:px-10 lg:py-16">
           <div className="space-y-6">
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur">
-              <StepSectionHeader step="STEP 2" title="Basic athlete details" description="" className="mx-auto w-full">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label>
-                    <div className="mb-2 text-sm text-white/60">Sex category</div>
-                    <select value={form.sex} onChange={(e) => setForm((f) => ({ ...f, sex: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none">
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="open">Open</option>
-                    </select>
-                  </label>
-                  <label>
-                    <div className="mb-2 text-sm text-white/60">Age</div>
-                    <input value={form.age} placeholder="e.g. 21" onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
-                  </label>
-                </div>
-                <div className="mt-4">
-                  <label>
-                    <div className="mb-2 text-sm text-white/60">Sessions / week</div>
-                    <input value={form.training} placeholder="e.g. 6" onChange={(e) => setForm((f) => ({ ...f, training: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
-                  </label>
-                </div>
-              </StepSectionHeader>
-            </div>
+            <StepSectionHeader step="STEP 2" title="Basic athlete details" description="" className="mx-auto w-full">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label>
+                  <div className="mb-2 text-sm text-white/60">Sex category</div>
+                  <select value={form.sex} onChange={(e) => setForm((f) => ({ ...f, sex: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="open">Open</option>
+                  </select>
+                </label>
+                <label>
+                  <div className="mb-2 text-sm text-white/60">Age</div>
+                  <input value={form.age} placeholder="e.g. 21" onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
+                </label>
+              </div>
+              <div className="mt-4">
+                <label>
+                  <div className="mb-2 text-sm text-white/60">Sessions / week</div>
+                  <input value={form.training} placeholder="e.g. 6" onChange={(e) => setForm((f) => ({ ...f, training: e.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none" />
+                </label>
+              </div>
+            </StepSectionHeader>
 
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur">
-              <StepSectionHeader step="STEP 3" title="Enter your other performances" description="" className="mx-auto w-full">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {visibleInputs.map((d) => (
-                    <label key={d.id} className="block">
-                      <div className="mb-2 text-sm text-white/60">{d.label}</div>
-                      <input
-                        value={form[d.id]}
-                        placeholder={
-                          d.id === "100" ? "e.g. 10.85" :
-                          d.id === "200" ? "e.g. 21.90" :
-                          d.id === "300" ? "e.g. 34.80" :
-                          d.id === "400" ? "e.g. 49.50" :
-                          d.id === "600" ? "e.g. 1:20.50" :
-                          d.id === "800" ? "e.g. 1:52.40" :
-                          d.id === "1000" ? "e.g. 2:24.00" :
-                          d.id === "1500" ? "e.g. 3:45.20" :
-                          d.id === "mile" ? "e.g. 4:03.50" :
-                          d.id === "2000" ? "e.g. 5:08.00" :
-                          d.id === "3000" ? "e.g. 8:05.00" :
-                          d.id === "2mile" ? "e.g. 8:42.00" :
-                          d.id === "5000" ? "e.g. 14:35.00" :
-                          d.id === "10000" ? "e.g. 30:20.00" :
-                          d.id === "half" ? "e.g. 1:08:30" :
-                          d.id === "marathon" ? "e.g. 2:24:00" :
-                          "e.g. 49.50"
-                        }
-                        onChange={(e) => {
-                          setForm((f) => ({ ...f, [d.id]: e.target.value }));
-                          setIsPaid(false);
-                          setAcceptedLegal(false);
-                          setAcceptedWithdrawal(false);
-                        }}
-                        className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/25"
-                      />
-                    </label>
-                  ))}
-                </div>
+            <StepSectionHeader step="STEP 3" title="Enter your other performances" description="" className="mx-auto w-full">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {visibleInputs.map((d) => (
+                  <label key={d.id} className="block">
+                    <div className="mb-2 text-sm text-white/60">{d.label}</div>
+                    <input
+                      value={form[d.id]}
+                      placeholder={
+                        d.id === "100" ? "e.g. 10.85" :
+                        d.id === "200" ? "e.g. 21.90" :
+                        d.id === "300" ? "e.g. 34.80" :
+                        d.id === "400" ? "e.g. 49.50" :
+                        d.id === "600" ? "e.g. 1:20.50" :
+                        d.id === "800" ? "e.g. 1:52.40" :
+                        d.id === "1000" ? "e.g. 2:24.00" :
+                        d.id === "1500" ? "e.g. 3:45.20" :
+                        d.id === "mile" ? "e.g. 4:03.50" :
+                        d.id === "2000" ? "e.g. 5:08.00" :
+                        d.id === "3000" ? "e.g. 8:05.00" :
+                        d.id === "2mile" ? "e.g. 8:42.00" :
+                        d.id === "5000" ? "e.g. 14:35.00" :
+                        d.id === "10000" ? "e.g. 30:20.00" :
+                        d.id === "half" ? "e.g. 1:08:30" :
+                        d.id === "marathon" ? "e.g. 2:24:00" :
+                        "e.g. 49.50"
+                      }
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, [d.id]: e.target.value }));
+                        setIsPaid(false);
+                        setAcceptedLegal(false);
+                        setAcceptedWithdrawal(false);
+                      }}
+                      className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/25"
+                    />
+                  </label>
+                ))}
+              </div>
 
-                <div className="mt-5 border-t border-white/10 pt-5">
-                  <div className="mb-3 text-xs uppercase tracking-[0.18em] text-white/40">Optional addition to STEP 3</div>
-                  <button type="button" onClick={() => setShowExtraDistances((prev) => !prev)} className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/85 transition hover:bg-white/[0.07]">
-                    <Plus className="h-4 w-4 text-red-300" />
-                    Add more distances for a better estimate
-                    <ChevronDown className={`h-4 w-4 transition ${showExtraDistances ? "rotate-180" : ""}`} />
-                  </button>
-                  <p className="mt-2 text-xs leading-6 text-white/50">Add any extra race times you have. More relevant inputs usually improve confidence and tighten the estimate.</p>
+              <div className="mt-5 border-t border-white/10 pt-5">
+                <div className="mb-3 text-xs uppercase tracking-[0.18em] text-white/40">Optional addition to STEP 3</div>
+                <button type="button" onClick={() => setShowExtraDistances((prev) => !prev)} className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/85 transition hover:bg-white/[0.07]">
+                  <Plus className="h-4 w-4 text-red-300" />
+                  Add more distances for a better estimate
+                  <ChevronDown className={`h-4 w-4 transition ${showExtraDistances ? "rotate-180" : ""}`} />
+                </button>
+                <p className="mt-2 text-xs leading-6 text-white/50">Add any extra race times you have. More relevant inputs usually improve confidence and tighten the estimate.</p>
 
-                  {showExtraDistances && (
-                    <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                      <div className="text-sm font-medium text-white">Additional distances</div>
-                      <div className="mt-1 text-xs leading-6 text-white/50">Select any additional events you want to include to help the prediction.</div>
-                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                        {extraDistanceOptions.map((d) => {
-                          const checked = filteredExtraIds.includes(d.id);
-                          return (
-                            <label key={d.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-white/80">
-                              <input type="checkbox" checked={checked} onChange={() => toggleExtraDistance(d.id)} className="h-4 w-4" />
-                              <span>{d.label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
+                {showExtraDistances && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-sm font-medium text-white">Additional distances</div>
+                    <div className="mt-1 text-xs leading-6 text-white/50">Select any additional events you want to include to help the prediction.</div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      {extraDistanceOptions.map((d) => {
+                        const checked = filteredExtraIds.includes(d.id);
+                        return (
+                          <label key={d.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-white/80">
+                            <input type="checkbox" checked={checked} onChange={() => toggleExtraDistance(d.id)} className="h-4 w-4" />
+                            <span>{d.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
-              </StepSectionHeader>
-            </div>
+                  </div>
+                )}
+              </div>
+            </StepSectionHeader>
           </div>
         </section>
 
-        {hasAnyPerformanceInput && (
-          <section className="mx-auto max-w-5xl px-6 pb-6 lg:px-10">
-            <CalculatingBridge show={showCalculationBridge} resultReady={Boolean(result)} />
-          </section>
-        )}
-
         <section className="mx-auto max-w-5xl px-6 pb-16 lg:px-10">
           <div className="space-y-6">
-            <div
-              ref={step4AnchorRef}
-              className="rounded-[32px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur"
-            >
-              {!!metricCards.length && (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {metricCards.map((card) => {
-                    const Icon = card.icon;
-                    return (
-                      <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-[30px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.025] p-5 shadow-lg shadow-black/10">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm text-white/55">{card.label}</div>
-                          <Icon className="h-5 w-5 text-red-300" />
-                        </div>
-                        <div className="mt-4 text-3xl font-semibold tracking-tight">{card.value}</div>
-                        <div className="mt-2 h-px w-full bg-gradient-to-r from-red-300/30 via-white/10 to-transparent" />
-                      </motion.div>
-                    );
-                  })}
-                </div>
+            {!!metricCards.length && (
+              <div className="grid gap-4 md:grid-cols-3">
+                {metricCards.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-[30px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.025] p-5 shadow-lg shadow-black/10">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-white/55">{card.label}</div>
+                        <Icon className="h-5 w-5 text-red-300" />
+                      </div>
+                      <div className="mt-4 text-3xl font-semibold tracking-tight">{card.value}</div>
+                      <div className="mt-2 h-px w-full bg-gradient-to-r from-red-300/30 via-white/10 to-transparent" />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            <StepSectionHeader step="STEP 4" title="Your predicted performance" description="" className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-2xl font-semibold">Personal result breakdown</h2>
+                {result ? (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-red-100">
+                    <Sparkles className="h-3.5 w-3.5" /> {result.target.label} ready
+                  </div>
+                ) : null}
+              </div>
+
+              {!result && (
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.4 }}
+                  transition={{ duration: 0.45 }}
+                  className="mt-4 rounded-2xl border border-dashed border-white/20 bg-black/20 p-8 text-center"
+                >
+                  <div className="text-sm uppercase tracking-[0.18em] text-white/40">Awaiting your inputs</div>
+                  <div className="mt-3 text-3xl font-semibold text-white/75">Your result will appear here</div>
+                  <p className="mt-3 text-sm leading-6 text-white/50">
+                    Complete STEP 1–3 above and your predicted performance will appear here automatically.
+                  </p>
+                </motion.div>
               )}
 
-              <div className={metricCards.length ? "mt-6" : ""}>
-                <StepSectionHeader step="STEP 4" title="Your predicted performance" description="" className="p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-2xl font-semibold">Personal result breakdown</h2>
-                    {result ? (
-                      <div className="inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-red-100">
-                        <Sparkles className="h-3.5 w-3.5" /> {result.target.label} ready
+              {result && (
+                <motion.div
+                  initial={{ opacity: 0, y: 28 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ duration: 0.55, ease: "easeOut" }}
+                >
+                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    <div className="sm:col-span-3 rounded-[28px] border border-white/10 bg-gradient-to-r from-red-500/10 via-white/[0.03] to-transparent p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">Result summary</div>
+                          <div className="mt-2 text-3xl font-semibold tracking-tight">{result.target.label} potential: {formatSeconds(result.potentialTime)}</div>
+                          <div className="mt-2 text-sm leading-6 text-white/65">Estimated only from your other performances, not from a time entered for the target itself.</div>
+                        </div>
+                        <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-right">
+                          <div className="text-xs uppercase tracking-[0.2em] text-red-100/80">Headroom</div>
+                          <div className="mt-1 text-2xl font-semibold text-white">{result.untapped.toFixed(2)} s</div>
+                        </div>
                       </div>
-                    ) : null}
+                    </div>
+
+                    {[["Speed", result.speedScore], ["Endurance", result.enduranceScore], ["Speed endurance", result.speedEnduranceScore]].map(([label, score]) => (
+                      <div key={label} className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
+                        <div className="text-sm text-white/55">{label}</div>
+                        <div className="mt-2 text-2xl font-semibold">{score}/100</div>
+                        <div className="mt-3 h-2 rounded-full bg-white/10"><div className="h-2 rounded-full bg-red-400" style={{ width: `${score}%` }} /></div>
+                      </div>
+                    ))}
                   </div>
 
-                  {!result && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 16 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.4 }}
-                      transition={{ duration: 0.45 }}
-                      className="mt-4 rounded-2xl border border-dashed border-white/20 bg-black/20 p-8 text-center"
-                    >
-                      <div className="text-sm uppercase tracking-[0.18em] text-white/40">Awaiting your inputs</div>
-                      <div className="mt-3 text-3xl font-semibold text-white/75">Your result will appear here</div>
-                      <p className="mt-3 text-sm leading-6 text-white/50">
-                        Complete STEP 1–3 above and your predicted performance will appear here automatically.
-                      </p>
-                    </motion.div>
-                  )}
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <div className="text-sm font-medium text-white">Important disclaimer</div>
+                    <p className="mt-2 text-sm leading-6 text-white/75">
+                      RacePotential provides model-based predictions only. Results are not guaranteed,
+                      are not medical advice, and should not replace professional coaching, diagnosis,
+                      or injury-related guidance.
+                    </p>
+                  </div>
 
-                  {result && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 28 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.15 }}
-                      transition={{ duration: 0.55, ease: "easeOut" }}
-                    >
-                      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                        <div className="sm:col-span-3 rounded-[28px] border border-white/10 bg-gradient-to-r from-red-500/10 via-white/[0.03] to-transparent p-5">
-                          <div className="flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                              <div className="text-xs uppercase tracking-[0.2em] text-white/45">Result summary</div>
-                              <div className="mt-2 text-3xl font-semibold tracking-tight">{result.target.label} potential: {formatSeconds(result.potentialTime)}</div>
-                              <div className="mt-2 text-sm leading-6 text-white/65">Estimated only from your other performances, not from a time entered for the target itself.</div>
-                            </div>
-                            <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-right">
-                              <div className="text-xs uppercase tracking-[0.2em] text-red-100/80">Headroom</div>
-                              <div className="mt-1 text-2xl font-semibold text-white">{result.untapped.toFixed(2)} s</div>
-                            </div>
-                          </div>
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
+                      <div className="flex items-center gap-2 text-sm text-white/55"><Flame className="h-4 w-4" /> Athlete type</div>
+                      <div className="mt-2 text-2xl font-semibold">{result.athleteType}</div>
+                      <p className="mt-3 text-sm leading-6 text-white/65">{result.athleteTypeSummary}</p>
+                    </div>
+                    <div className="rounded-[26px] border border-white/10 bg-black/20 p-4 shadow-inner shadow-black/20">
+                      <div className="flex items-center gap-2 text-sm text-white/55"><TrendingDown className="h-4 w-4" /> Untapped potential</div>
+                      <div className="mt-2 text-2xl font-semibold">{result.untapped.toFixed(2)} s</div>
+                      <p className="mt-3 text-sm leading-6 text-white/65">This is a bounded upside estimate, not a fantasy number. The goal is realistic headroom, not fake certainty.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><Sparkles className="h-4 w-4" /> Short personal feedback</div>
+                    <div className="mt-3 rounded-2xl border border-red-400/15 bg-red-500/10 p-4">
+                      <div className="text-sm font-medium text-white">{result.shortFeedback.headline}</div>
+                      <div className="mt-2 text-sm leading-6 text-white/70">{result.shortFeedback.summary}</div>
+                      <p className="mt-3 text-sm leading-7 text-white/85">{result.shortFeedback.body}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><CheckCircle2 className="h-4 w-4" /> What you seem good at</div>
+                    <ul className="mt-3 space-y-2 text-white/85">{result.strengths.map((item) => <li key={item}>• {item}</li>)}</ul>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><TrendingDown className="h-4 w-4" /> What you should train more</div>
+                    <ul className="mt-3 space-y-2 text-white/85">{result.needs.map((item) => <li key={item}>• {item}</li>)}</ul>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><Medal className="h-4 w-4" /> Best event fit</div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      {bestEventRanking.map((row, index) => (
+                        <div key={row.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                          <div className="text-xs uppercase tracking-[0.2em] text-white/45">#{index + 1}</div>
+                          <div className="mt-2 text-lg font-semibold text-white/90">{row.label}</div>
                         </div>
+                      ))}
+                    </div>
+                  </div>
 
-                        {[["Speed", result.speedScore], ["Endurance", result.enduranceScore], ["Speed endurance", result.speedEnduranceScore]].map(([label, score]) => (
-                          <div key={label} className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4 shadow-inner shadow-black/20">
-                            <div className="text-sm text-white/55">{label}</div>
-                            <div className="mt-2 text-2xl font-semibold">{score}/100</div>
-                            <div className="mt-3 h-2 rounded-full bg-white/10"><div className="h-2 rounded-full bg-red-400" style={{ width: `${score}%` }} /></div>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Equivalent performances</div>
+                    {!isPaid ? (
+                      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex items-center gap-2 text-sm text-white/70"><Lock className="h-4 w-4" /> Premium only</div>
+                        <p className="mt-3 text-sm leading-6 text-white/60">
+                          Unlock to see your equivalent performances across nearby events. This is especially useful for comparing how your profile translates from 100m to 1000m and beyond.
+                        </p>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">400m — 49.8x</div>
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">800m — 1:53.xx</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {equivalents.map((row) => (
+                          <div key={row.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                            <div>
+                              <div className="text-white/75">{row.label}</div>
+                              <div className="mt-1 text-xs text-white/45">{row.confidence} confidence</div>
+                            </div>
+                            <div className="font-semibold text-white">{formatSeconds(row.time)}</div>
                           </div>
                         ))}
                       </div>
+                    )}
+                  </div>
 
-                      <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
-                        <div className="text-sm font-medium text-white">Important disclaimer</div>
-                        <p className="mt-2 text-sm leading-6 text-white/75">
-                          RacePotential provides model-based predictions only. Results are not guaranteed,
-                          are not medical advice, and should not replace professional coaching, diagnosis,
-                          or injury-related guidance.
-                        </p>
-                      </div>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                    <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Main models used</div>
+                    <ul className="mt-3 space-y-2 text-white/80">{result.methods.slice(0, 4).map((m) => <li key={m}>• {m}</li>)}</ul>
+                  </div>
 
-                      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                        <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4 shadow-inner shadow-black/20">
-                          <div className="flex items-center gap-2 text-sm text-white/55"><Flame className="h-4 w-4" /> Athlete type</div>
-                          <div className="mt-2 text-2xl font-semibold">{result.athleteType}</div>
-                          <p className="mt-3 text-sm leading-6 text-white/65">{result.athleteTypeSummary}</p>
-                        </div>
-                        <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4 shadow-inner shadow-black/20">
-                          <div className="flex items-center gap-2 text-sm text-white/55"><TrendingDown className="h-4 w-4" /> Untapped potential</div>
-                          <div className="mt-2 text-2xl font-semibold">{result.untapped.toFixed(2)} s</div>
-                          <p className="mt-3 text-sm leading-6 text-white/65">This is a bounded upside estimate, not a fantasy number. The goal is realistic headroom, not fake certainty.</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                        <div className="flex items-center gap-2 text-sm text-white/60"><Sparkles className="h-4 w-4" /> Short personal feedback</div>
-                        <div className="mt-3 rounded-2xl border border-red-400/15 bg-red-500/10 p-4">
-                          <div className="text-sm font-medium text-white">{result.shortFeedback.headline}</div>
-                          <div className="mt-2 text-sm leading-6 text-white/70">{result.shortFeedback.summary}</div>
-                          <p className="mt-3 text-sm leading-7 text-white/85">{result.shortFeedback.body}</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                        <div className="flex items-center gap-2 text-sm text-white/60"><CheckCircle2 className="h-4 w-4" /> What you seem good at</div>
-                        <ul className="mt-3 space-y-2 text-white/85">{result.strengths.map((item) => <li key={item}>• {item}</li>)}</ul>
-                      </div>
-
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                        <div className="flex items-center gap-2 text-sm text-white/60"><TrendingDown className="h-4 w-4" /> What you should train more</div>
-                        <ul className="mt-3 space-y-2 text-white/85">{result.needs.map((item) => <li key={item}>• {item}</li>)}</ul>
-                      </div>
-
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                        <div className="flex items-center gap-2 text-sm text-white/60"><Medal className="h-4 w-4" /> Best event fit</div>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          {bestEventRanking.map((row, index) => (
-                            <div key={row.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                              <div className="text-xs uppercase tracking-[0.2em] text-white/45">#{index + 1}</div>
-                              <div className="mt-2 text-lg font-semibold text-white/90">{row.label}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                        <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Equivalent performances</div>
-                        {!isPaid ? (
-                          <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-                            <div className="flex items-center gap-2 text-sm text-white/70"><Lock className="h-4 w-4" /> Premium only</div>
-                            <p className="mt-3 text-sm leading-6 text-white/60">
-                              Unlock to see your equivalent performances across nearby events. This is especially useful for comparing how your profile translates from 100m to 1000m and beyond.
-                            </p>
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">400m — 49.8x</div>
-                              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/45 blur-[2px]">800m — 1:53.xx</div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            {equivalents.map((row) => (
-                              <div key={row.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
-                                <div>
-                                  <div className="text-white/75">{row.label}</div>
-                                  <div className="mt-1 text-xs text-white/45">{row.confidence} confidence</div>
-                                </div>
-                                <div className="font-semibold text-white">{formatSeconds(row.time)}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                        <div className="flex items-center gap-2 text-sm text-white/60"><MapPin className="h-4 w-4" /> Main models used</div>
-                        <ul className="mt-3 space-y-2 text-white/80">{result.methods.slice(0, 4).map((m) => <li key={m}>• {m}</li>)}</ul>
-                      </div>
-
-                      <PremiumReportSection
-                        result={result}
-                        equivalents={equivalents}
-                        profile={profile}
-                        form={form}
-                        isPaid={isPaid}
-                        onUnlock={() => setIsPaid(true)}
-                        onDownloadPdf={handleDownloadPdf}
-                        acceptedLegal={acceptedLegal}
-                        setAcceptedLegal={setAcceptedLegal}
-                        acceptedWithdrawal={acceptedWithdrawal}
-                        setAcceptedWithdrawal={setAcceptedWithdrawal}
-                        canUnlockPremium={canUnlockPremium}
-                        priceText={priceText}
-                        setLegalOpen={setLegalOpen}
-                      />
-                    </motion.div>
-                  )}
-                </StepSectionHeader>
-              </div>
-            </div>
+                  <PremiumReportSection
+                    result={result}
+                    equivalents={equivalents}
+                    profile={profile}
+                    form={form}
+                    isPaid={isPaid}
+                    onUnlock={() => setIsPaid(true)}
+                    onDownloadPdf={handleDownloadPdf}
+                    acceptedLegal={acceptedLegal}
+                    setAcceptedLegal={setAcceptedLegal}
+                    acceptedWithdrawal={acceptedWithdrawal}
+                    setAcceptedWithdrawal={setAcceptedWithdrawal}
+                    canUnlockPremium={canUnlockPremium}
+                    priceText={priceText}
+                    setLegalOpen={setLegalOpen}
+                  />
+                </motion.div>
+              )}
+            </StepSectionHeader>
 
             <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-red-500/20 to-white/5 p-6 shadow-xl shadow-red-500/10 before:absolute before:-right-16 before:-top-16 before:h-40 before:w-40 before:rounded-full before:bg-red-400/10 before:blur-3xl">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2413,7 +2336,7 @@ This website offers an athletic performance prediction tool and optional paid di
                     Terms of Service
                   </button>
                   <button type="button" onClick={() => setLegalOpen("refund")} className="text-left text-white/75 hover:text-white">
-                    Digital Content Notice
+                    Refunds & Digital Content Notice
                   </button>
                   <button type="button" onClick={() => setLegalOpen("legal")} className="text-left text-white/75 hover:text-white">
                     Legal Notice / Contact
