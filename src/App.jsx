@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { motion, useScroll, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
@@ -594,7 +594,10 @@ function buildPrediction(targetId, profile, form) {
   const athleteTypeSummary = athleteProfile.summary;
   const untapped = Math.max(current.time - potentialTime, 0);
   const { strengths, needs } = buildStrengthsAndNeeds({ profile, athleteType, untapped });
+  const previewLine = `${strengths[0]} ${needs[0]}`;
   const shortFeedback = buildShortFeedback({ profile, target, athleteType, athleteTypeSummary, strengths, needs, untapped, speedScore, enduranceScore, speedEnduranceScore, training: form.training, age: form.age });
+
+  const aiFeedback = `Your selected target is ${target.label}. Based on the performances you entered, the model estimates a realistic current level around ${formatSeconds(current.time)} and a stronger but still bounded upside around ${formatSeconds(potentialTime)}. That creates an estimated headroom of ${untapped.toFixed(2)} seconds.\n\nYour strongest current qualities appear to be these: ${strengths.join(" ")}\n\nThe most useful areas to train next are these: ${needs.join(" ")}\n\nModel choice matters here. For this event, RacePotential leaned most heavily on ${current.methods.slice(0, 3).join(", ")}. That means the result is not just one formula stretched across all distances. It is a blended estimate built from sprint-conversion logic, local interpolation, and endurance-specific models when the target event demands it.\n\nIf I were coaching the next block for this target, I would focus on one session that protects your current strength, one session that attacks your biggest limiter, and one session that improves race execution for the exact distance you selected.`;
 
   return {
     target,
@@ -612,7 +615,9 @@ function buildPrediction(targetId, profile, form) {
     untapped,
     strengths,
     needs,
+    previewLine,
     shortFeedback,
+    aiFeedback,
     methods: current.methods,
   };
 }
@@ -748,7 +753,7 @@ function buildFullPersonalizedReport(result, equivalents, profile, form) {
     "",
     `Your athlete type is ${result.athleteType}. ${result.athleteTypeSummary}`,
     "",
-    `Your score profile currently looks like Speed ${result.speedScore}/100, Endurance ${result.enduranceScore}/100, and Speed Endurance ${result.speedEnduranceScore}/100.`,
+    `Your score profile currently looks like Speed ${result.speedScore}/100, Endurance ${result.enduranceScore}/100, and Speed Endurance ${result.speedEnduranceScore}/100. That score pattern is part of why the model places you in this athlete category and why it identifies your current limiter as ${advice.limiter}.`,
     "",
     "What the model thinks you already do well:",
     strengthsText,
@@ -778,6 +783,11 @@ function buildFullPersonalizedReport(result, equivalents, profile, form) {
     "What to expect if you apply this well:",
     "If the next training block is built around the limiter identified above, most athletes with a similar profile improve not because they train harder every day, but because they train the right system often enough and recover well enough to absorb it.",
   ].join("\n");
+}
+
+function buildPdfReportLines(result, equivalents, profile, form) {
+  const fullReport = buildFullPersonalizedReport(result, equivalents, profile, form);
+  return fullReport.split("\n");
 }
 
 function getProcessState({ targetId, form, visibleInputs, result }) {
@@ -1033,7 +1043,13 @@ function PremiumReportSection({ result, equivalents, profile, form, isPaid, onUn
             </label>
             <label className="mt-3 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/75">
               <input type="checkbox" checked={acceptedWithdrawal} onChange={(e) => setAcceptedWithdrawal(e.target.checked)} className="mt-1 h-4 w-4 shrink-0" />
-              <span>I understand this is an immediately delivered digital report and acknowledge access begins upon purchase.</span>
+              <span>
+                I request immediate access to the premium digital report and acknowledge that, where applicable, I may lose my withdrawal right once digital delivery begins. Read{" "}
+                <button type="button" onClick={() => setLegalOpen("refund")} className="text-red-300 underline">
+                  Refunds & Digital Content Notice
+                </button>
+                .
+              </span>
             </label>
             <p className="mt-3 text-xs leading-6 text-white/50">This tool provides model-based estimates only. It does not provide medical advice, injury advice, or guaranteed performance outcomes.</p>
           </div>
@@ -1125,6 +1141,59 @@ function LegalModal({ openKey, onClose, legalContent }) {
     </div>
   );
 }
+
+function runSelfChecks() {
+  const tests = [
+    { name: "parse plain seconds", pass: parseTimeToSeconds("11.50") === 11.5 },
+    { name: "parse minute format", pass: parseTimeToSeconds("1:58.40") === 118.4 },
+    { name: "format seconds", pass: formatSeconds(11.5) === "11.50" },
+    { name: "format minutes", pass: formatSeconds(118.4) === "1:58.40" },
+    {
+      name: "interpolation works",
+      pass: Math.abs(localPowerInterpolate(300, { meters: 200, time: 22.8 }, { meters: 400, time: 50.6 }) - 34.8162051625) < 0.1,
+    },
+    {
+      name: "prediction exists",
+      pass: (() => {
+        const res = buildPrediction("400", "sprinter", { "100": "11.5", "200": "22.8", "800": "1:58.4", age: "20", training: "5" });
+        return !!res && typeof res.currentTime === "number" && typeof res.previewLine === "string";
+      })(),
+    },
+    {
+      name: "equivalents builder returns array",
+      pass: Array.isArray(buildEquivalentPerformances("400", "sprinter", { "100": "11.5", "200": "22.8", "800": "1:58.4", age: "20", training: "5" })),
+    },
+    {
+      name: "short-distance equivalents use event-specific predictions",
+      pass: (() => {
+        const rows = buildEquivalentPerformances("800", "middle", { "400": "52.0", "1500": "4:05.0", "3000": "8:55.0", age: "22", training: "6" });
+        const four = rows.find((r) => r.id === "400");
+        return !!four && four.time < 60;
+      })(),
+    },
+    {
+      name: "short-distance equivalent tuning lowers 600m for middle profile",
+      pass: (() => {
+        const raw = buildPrediction("600", "middle", { "400": "52.0", "800": "1:56.0", "1500": "4:05.0", age: "22", training: "6" });
+        const tuned = buildEquivalentPerformances("800", "middle", { "400": "52.0", "800": "1:56.0", "1500": "4:05.0", age: "22", training: "6" }).find((r) => r.id === "600");
+        return !!raw && !!tuned && tuned.time < raw.currentTime;
+      })(),
+    },
+    {
+      name: "best event ranking returns array",
+      pass: Array.isArray(buildBestEventRanking("middle", { "400": "51.0", "800": "1:55.0", "1500": "4:02.0", age: "20", training: "5" })),
+    },
+  ];
+
+  if (typeof console !== "undefined") {
+    const failures = tests.filter((t) => !t.pass);
+    if (failures.length) {
+      console.warn("RacePotential self-checks failed:", failures.map((f) => f.name));
+    }
+  }
+}
+
+runSelfChecks();
 
 export default function RacePotentialPreview() {
   const { scrollYProgress } = useScroll();
@@ -1234,7 +1303,7 @@ export default function RacePotentialPreview() {
   const toggleExtraDistance = (id) => setSelectedExtraDistanceIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const siteName = "RacePotential";
-  const siteUrl = "racepotential.app";
+  const siteUrl = "https://racepotential.app";
   const supportEmail = "support@racepotential.app";
   const businessName = "Your Company Name";
   const businessCountry = "Spain";
@@ -1271,48 +1340,258 @@ export default function RacePotentialPreview() {
 
   const handleDownloadPdf = () => {
     if (!result) return;
+
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const colors = { bg: [10,10,10], panel: [20,20,20], panel2: [28,28,28], border: [55,55,55], muted: [170,170,170], text: [245,245,245], red: [239,68,68], redSoft: [110,32,32], whiteSoft: [215,215,215] };
+
+    const colors = {
+      bg: [10, 10, 10],
+      panel: [20, 20, 20],
+      panel2: [28, 28, 28],
+      border: [55, 55, 55],
+      muted: [170, 170, 170],
+      text: [245, 245, 245],
+      red: [239, 68, 68],
+      redSoft: [110, 32, 32],
+      whiteSoft: [215, 215, 215],
+    };
+
     const marginX = 36;
     let y = 34;
+
     const safeProfileLabel = profile ? PROFILE_CONFIG[profile].label : "Runner";
-    const addPage = () => { doc.addPage(); y = 34; drawPageBackground(); drawFooter(); };
-    const ensureSpace = (needed) => { if (y + needed > pageHeight - 58) addPage(); };
-    const drawPageBackground = () => { doc.setFillColor(...colors.bg); doc.rect(0,0,pageWidth,pageHeight,"F"); };
-    const drawFooter = () => { doc.setDrawColor(...colors.border); doc.line(marginX, pageHeight-28, pageWidth-marginX, pageHeight-28); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...colors.red); doc.text("RacePotential", marginX, pageHeight-12); doc.setFont("helvetica","normal"); doc.setTextColor(...colors.muted); doc.text("Predict your next breakthrough", pageWidth-marginX, pageHeight-12, {align:"right"}); };
-    const drawSectionTitle = (title) => { ensureSpace(26); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(...colors.red); doc.text(String(title).toUpperCase(), marginX, y); y += 18; };
-    const drawParagraphBox = (text, options = {}) => {
-      const { fill=colors.panel, border=colors.border, textColor=colors.whiteSoft, fontSize=11, lineHeight=16, padding=14 } = options;
-      const maxWidth = pageWidth - marginX*2 - padding*2;
-      const lines = doc.splitTextToSize(String(text), maxWidth);
-      const boxHeight = lines.length * lineHeight + padding*2 - 4;
-      ensureSpace(boxHeight+10);
-      doc.setFillColor(...fill); doc.roundedRect(marginX, y, pageWidth-marginX*2, boxHeight, 14,14,"F");
-      doc.setDrawColor(...border); doc.roundedRect(marginX, y, pageWidth-marginX*2, boxHeight, 14,14,"S");
-      doc.setFont("helvetica","normal"); doc.setFontSize(fontSize); doc.setTextColor(...textColor);
-      doc.text(lines, marginX+padding, y+padding+8); y += boxHeight+10;
+
+    const addPage = () => {
+      doc.addPage();
+      y = 34;
+      drawPageBackground();
+      drawFooter();
     };
+
+    const ensureSpace = (needed) => {
+      if (y + needed > pageHeight - 58) addPage();
+    };
+
+    const drawPageBackground = () => {
+      doc.setFillColor(...colors.bg);
+      doc.rect(0, 0, pageWidth, pageHeight, "F");
+    };
+
+    const drawFooter = () => {
+      doc.setDrawColor(...colors.border);
+      doc.line(marginX, pageHeight - 28, pageWidth - marginX, pageHeight - 28);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...colors.red);
+      doc.text("RacePotential", marginX, pageHeight - 12);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.muted);
+      doc.text("Predict your next breakthrough", pageWidth - marginX, pageHeight - 12, { align: "right" });
+    };
+
+    const drawHeader = () => {
+      doc.setFillColor(...colors.panel);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, 98, 18, 18, "F");
+
+      doc.setFillColor(...colors.redSoft);
+      doc.roundedRect(marginX + 16, y + 16, 120, 24, 12, 12, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...colors.text);
+      doc.text("PREMIUM REPORT", marginX + 28, y + 32);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(24);
+      doc.setTextColor(...colors.text);
+      doc.text("RacePotential Report", marginX + 16, y + 62);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(...colors.whiteSoft);
+      doc.text(`${safeProfileLabel} profile · ${result.target.label} target`, marginX + 16, y + 82);
+
+      y += 116;
+    };
+
+    const drawMetricCards = () => {
+      const gap = 10;
+      const totalWidth = pageWidth - marginX * 2;
+      const cardWidth = (totalWidth - gap * 2) / 3;
+      const cardHeight = 78;
+
+      const cards = [
+        { label: "Current level", value: formatSeconds(result.currentTime) },
+        { label: "True potential", value: formatSeconds(result.potentialTime) },
+        { label: "Confidence", value: result.confidence },
+      ];
+
+      ensureSpace(cardHeight + 16);
+
+      cards.forEach((card, index) => {
+        const x = marginX + index * (cardWidth + gap);
+        doc.setFillColor(...colors.panel2);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 14, 14, "F");
+        doc.setDrawColor(...colors.border);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 14, 14, "S");
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.muted);
+        doc.text(card.label.toUpperCase(), x + 12, y + 20);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.setTextColor(...colors.text);
+        doc.text(String(card.value), x + 12, y + 48);
+      });
+
+      y += cardHeight + 16;
+    };
+
+    const drawSectionTitle = (title) => {
+      ensureSpace(26);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(...colors.red);
+      doc.text(String(title).toUpperCase(), marginX, y);
+      y += 18;
+    };
+
+    const drawParagraphBox = (text, options = {}) => {
+      const {
+        fill = colors.panel,
+        border = colors.border,
+        textColor = colors.whiteSoft,
+        fontSize = 11,
+        lineHeight = 16,
+        padding = 14,
+      } = options;
+
+      const maxWidth = pageWidth - marginX * 2 - padding * 2;
+      const lines = doc.splitTextToSize(String(text), maxWidth);
+      const boxHeight = lines.length * lineHeight + padding * 2 - 4;
+
+      ensureSpace(boxHeight + 10);
+
+      doc.setFillColor(...fill);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, 14, 14, "F");
+      doc.setDrawColor(...border);
+      doc.roundedRect(marginX, y, pageWidth - marginX * 2, boxHeight, 14, 14, "S");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(...textColor);
+      doc.text(lines, marginX + padding, y + padding + 8);
+
+      y += boxHeight + 10;
+    };
+
+    const drawBulletListBox = (items) => {
+      const listText = items.map((item) => `• ${item}`).join("\n");
+      drawParagraphBox(listText);
+    };
+
+    const drawTwoColumnMiniCards = (items) => {
+      const gap = 10;
+      const totalWidth = pageWidth - marginX * 2;
+      const cardWidth = (totalWidth - gap) / 2;
+      const lineHeight = 15;
+      const padding = 12;
+
+      const rows = [];
+      for (let i = 0; i < items.length; i += 2) {
+        rows.push(items.slice(i, i + 2));
+      }
+
+      rows.forEach((row) => {
+        const heights = row.map((text) => {
+          const lines = doc.splitTextToSize(String(text), cardWidth - padding * 2);
+          return lines.length * lineHeight + padding * 2;
+        });
+
+        const rowHeight = Math.max(...heights, 48);
+        ensureSpace(rowHeight + 10);
+
+        row.forEach((text, idx) => {
+          const x = marginX + idx * (cardWidth + gap);
+          const lines = doc.splitTextToSize(String(text), cardWidth - padding * 2);
+
+          doc.setFillColor(...colors.panel2);
+          doc.roundedRect(x, y, cardWidth, rowHeight, 12, 12, "F");
+          doc.setDrawColor(...colors.border);
+          doc.roundedRect(x, y, cardWidth, rowHeight, 12, 12, "S");
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10.5);
+          doc.setTextColor(...colors.whiteSoft);
+          doc.text(lines, x + padding, y + padding + 6);
+        });
+
+        y += rowHeight + 10;
+      });
+    };
+
     const advice = buildTrainingAdvice(result, profile, form);
-    drawPageBackground(); drawFooter();
-    // header
-    doc.setFillColor(...colors.panel); doc.roundedRect(marginX,y,pageWidth-marginX*2,98,18,18,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(24); doc.setTextColor(...colors.text); doc.text("RacePotential Report", marginX+16, y+62);
-    doc.setFont("helvetica","normal"); doc.setFontSize(11); doc.setTextColor(...colors.whiteSoft); doc.text(`${safeProfileLabel} profile · ${result.target.label} target`, marginX+16, y+82);
-    y += 116;
+
+    drawPageBackground();
+    drawFooter();
+    drawHeader();
+    drawMetricCards();
+
     drawSectionTitle("Core result");
-    drawParagraphBox(`Realistic current level: ${formatSeconds(result.currentTime)} · True potential: ${formatSeconds(result.potentialTime)} · Headroom: ${result.untapped.toFixed(2)}s · Confidence: ${result.confidence}`);
+    drawParagraphBox(
+      `RacePotential estimates your realistic current level around ${formatSeconds(result.currentTime)} and your stronger upside around ${formatSeconds(result.potentialTime)}. That creates an estimated headroom of ${result.untapped.toFixed(2)} seconds for ${result.target.label}.`
+    );
+
     drawSectionTitle("Athlete profile");
-    drawParagraphBox(`Athlete type: ${result.athleteType}\n${result.athleteTypeSummary}`);
-    drawSectionTitle("Strengths");
-    drawParagraphBox((result.strengths||[]).map(s=>`• ${s}`).join("\n"));
-    drawSectionTitle("Development areas");
-    drawParagraphBox((result.needs||[]).map(n=>`• ${n}`).join("\n"));
-    drawSectionTitle("Primary session");
-    drawParagraphBox(`${advice.primarySession.title||""}\nGoal: ${advice.primarySession.goal||""}\nPrescription: ${advice.primarySession.prescription||""}\nNote: ${advice.primarySession.coaching||""}`, { fill:[34,18,18], border:colors.redSoft, textColor:colors.text });
-    drawSectionTitle("Suggested weekly structure");
-    drawParagraphBox(advice.weeklyStructure.map(d=>`• ${d}`).join("\n"));
+    drawTwoColumnMiniCards([
+      `Athlete type\n${result.athleteType}`,
+      `Score profile\nSpeed ${result.speedScore}/100 · Endurance ${result.enduranceScore}/100 · Speed Endurance ${result.speedEnduranceScore}/100`,
+    ]);
+    drawParagraphBox(result.athleteTypeSummary);
+
+    drawSectionTitle("What you seem good at");
+    drawBulletListBox(result.strengths);
+
+    drawSectionTitle("What you should train more");
+    drawBulletListBox(result.needs);
+
+    drawSectionTitle("Equivalent performances");
+    if (equivalents.length) {
+      drawTwoColumnMiniCards(equivalents.map((eq) => `${eq.label}\n${formatSeconds(eq.time)} · ${eq.confidence} confidence`));
+    } else {
+      drawParagraphBox("Not enough data yet to build strong equivalent performances.");
+    }
+
+    drawSectionTitle("Specific session to improve your limiter");
+    drawParagraphBox(
+      `${advice.primarySession.title || ""}\n\nGoal: ${advice.primarySession.goal || ""}\n\nPrescription: ${advice.primarySession.prescription || ""}\n\nExecution note: ${advice.primarySession.coaching || ""}`,
+      { fill: [34, 18, 18], border: colors.redSoft, textColor: colors.text }
+    );
+
+    drawSectionTitle("Suggested training structure");
+    drawTwoColumnMiniCards(advice.weeklyStructure);
+
+    drawSectionTitle("Detailed report");
+    buildPdfReportLines(result, equivalents, profile, form).forEach((line) => {
+      if (String(line).trim() === "") {
+        y += 4;
+      } else if (
+        line === "What the model thinks you already do well:" ||
+        line === "What is holding you back most right now:" ||
+        line === "Equivalent performances based on your current profile:" ||
+        line === "The clearest training conclusion:" ||
+        line === "Other session types that would support improvement:" ||
+        line === "Suggested weekly structure:" ||
+        line === "What to expect if you apply this well:"
+      ) {
+        drawSectionTitle(line);
+      } else {
+        drawParagraphBox(line, { fill: colors.panel2, border: colors.border, textColor: colors.whiteSoft, fontSize: 10.5, lineHeight: 15, padding: 12 });
+      }
+    });
+
     const safeProfile = safeProfileLabel.split(" ").join("-").toLowerCase();
     const safeTarget = String(result.target.label).split(" ").join("-").toLowerCase();
     doc.save(`racepotential-${safeProfile}-${safeTarget}-report.pdf`);
@@ -1321,15 +1600,67 @@ export default function RacePotentialPreview() {
   const legalContent = {
     privacy: {
       title: "Privacy Policy",
-      body: `We collect the information you enter into the calculator, such as performance times, age, sex category, target event, and training frequency, in order to generate race predictions and personalized report content.\n\nPayment processing may be handled by a third-party provider such as Stripe. We do not store full card details.\n\nContact: ${supportEmail}\n\nData controller:\n${businessName}\n${businessAddress}\n${businessCountry}`.trim(),
+      body: `
+We collect the information you enter into the calculator, such as performance times, age, sex category, target event, and training frequency, in order to generate race predictions and personalized report content.
+
+If payment is enabled later, payment processing may be handled by a third-party payment provider such as Stripe. We do not store full card details ourselves.
+
+We may process technical data needed to operate the site, prevent abuse, and improve reliability. If analytics, advertising, or tracking tools are added later, they should only run after any legally required consent has been obtained.
+
+Your data is used to provide the service, support purchases, respond to support requests, and comply with legal obligations.
+
+You may have rights to access, correct, delete, or object to certain processing of your personal data depending on applicable law. Contact: ${supportEmail}
+
+Data controller:
+${businessName}
+${businessAddress}
+${businessCountry}
+${supportEmail}
+      `.trim(),
     },
     terms: {
       title: "Terms of Service",
-      body: `RacePotential provides predictive performance estimates for informational purposes only. Results are model-based estimates, not guarantees of athletic performance, training outcomes, health outcomes, or coaching success.\n\nBy using this site, you agree that:\n1. You are responsible for how you use the information provided.\n2. The site is not medical advice, injury advice, or a substitute for professional coaching.\n3. Performance predictions may be inaccurate, incomplete, or unsuitable for your specific circumstances.\n4. You will not misuse, copy, reverse engineer, or resell premium report content.\n5. Access to premium digital content is delivered immediately after payment.`.trim(),
+      body: `
+RacePotential provides predictive performance estimates for informational purposes only. Results are model-based estimates, not guarantees of athletic performance, training outcomes, health outcomes, or coaching success.
+
+By using this site, you agree that:
+1. You are responsible for how you use the information provided.
+2. The site is not medical advice, injury advice, or a substitute for professional coaching.
+3. Performance predictions may be inaccurate, incomplete, or unsuitable for your specific circumstances.
+4. You will not misuse, copy, reverse engineer, or resell premium report content or the calculator in an abusive way.
+5. Access to premium digital content may be delivered immediately after payment.
+
+We may update these terms from time to time. Continued use of the service after changes means you accept the updated terms.
+      `.trim(),
+    },
+    refund: {
+      title: "Refunds & Digital Content Notice",
+      body: `
+Premium reports are sold as digital content / digital service access.
+
+For EU consumers, online purchases can normally include a 14-day withdrawal period. However, where digital content or digital services are supplied immediately, that right can be lost once performance begins if the user expressly agrees to immediate supply and acknowledges that the withdrawal right is thereby lost.
+
+By unlocking the premium report, you agree to immediate delivery of digital content.
+
+Refund requests can still be reviewed in cases such as duplicate payment, technical failure, or non-delivery. Contact: ${supportEmail}
+      `.trim(),
     },
     legal: {
       title: "Legal Notice / Contact",
-      body: `Service provider:\n${businessName}\n${businessAddress}\n${businessCountry}\n\nWebsite: ${siteUrl}\n\nSupport: ${supportEmail}\n\nThis website offers an athletic performance prediction tool and optional paid digital report access.`.trim(),
+      body: `
+Service provider:
+${businessName}
+${businessAddress}
+${businessCountry}
+
+Website:
+${siteUrl}
+
+Support:
+${supportEmail}
+
+This website offers an athletic performance prediction tool and optional paid digital report access.
+      `.trim(),
     },
   };
 
@@ -1375,7 +1706,8 @@ export default function RacePotentialPreview() {
         )}
 
         {/* ── HERO SECTION ─────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden border-b border-white/10">
+        <section className="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(239,68,68,0.20),transparent_35%),radial-gradient(circle_at_85%_20%,rgba(255,255,255,0.08),transparent_18%)]">
+          <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(to_right,white_1px,transparent_1px),linear-gradient(to_bottom,white_1px,transparent_1px)] [background-size:42px_42px]" />
           <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-20">
             <div>
               <div className="mb-5"><RacePotentialLogo size={48} /></div>
@@ -1819,6 +2151,7 @@ export default function RacePotentialPreview() {
                 <div className="mt-3 flex flex-col gap-2 text-sm">
                   <button type="button" onClick={() => setLegalOpen("privacy")} className="text-left text-white/75 hover:text-white">Privacy Policy</button>
                   <button type="button" onClick={() => setLegalOpen("terms")} className="text-left text-white/75 hover:text-white">Terms of Service</button>
+                  <button type="button" onClick={() => setLegalOpen("refund")} className="text-left text-white/75 hover:text-white">Refunds & Digital Content Notice</button>
                   <button type="button" onClick={() => setLegalOpen("legal")} className="text-left text-white/75 hover:text-white">Legal Notice / Contact</button>
                 </div>
               </div>
@@ -1827,6 +2160,7 @@ export default function RacePotentialPreview() {
                 <div className="mt-3 space-y-2 text-sm text-white/60">
                   <p>Price shown before purchase: {priceText}</p>
                   <p>Support: {supportEmail}</p>
+                  <p>No non-essential cookies should run before consent if you add analytics or marketing tools later.</p>
                 </div>
               </div>
             </div>
